@@ -1,3 +1,2 @@
 mod ipc;
-
-pub use ipc::{stash};
+pub use ipc::{stash, summon};

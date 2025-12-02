@@ -29,8 +29,9 @@ fn main() -> std::io::Result<()> {
                             Added => {
                                 state.update()?;
                             },
-                            AlreadyExists => {
+                            AlreadyExists(scratchpad) => {
                                 ipc::stash(&mut socket, &state)?;
+                                ipc::summon(&mut socket, &scratchpad)?;
                             },
                         }
                     },

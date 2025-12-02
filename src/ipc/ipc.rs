@@ -1,7 +1,11 @@
 use std::io::Result;
 
-use niri_ipc::{socket::Socket, Request, Response, Action::{MoveWindowToMonitor, MoveWindowToWorkspace}};
-use crate::state::State;
+use crate::state::{Scratchpad, State};
+use niri_ipc::{
+    socket::Socket,
+    Action::{MoveWindowToMonitor, MoveWindowToWorkspace},
+    Request, Response,
+};
 // Ensures all scratchpads are stashed
 pub fn stash(socket: &mut Socket, state: &State) -> Result<()> {
     let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
@@ -10,13 +14,52 @@ pub fn stash(socket: &mut Socket, state: &State) -> Result<()> {
     let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
         return Ok(());
     };
-    let Some(stash_workspace) = workspaces.iter()
-        .find(|workspace| workspace.name.as_deref() == Some("stash")) else {
-            return Ok(())
+    let Some(stash_workspace) = workspaces
+        .iter()
+        .find(|workspace| workspace.name.as_deref() == Some("stash"))
+    else {
+        return Ok(());
+    };
+    for window in windows.iter().filter(|window| {
+        state
+            .scratchpads
+            .iter()
+            .any(|scratchpad| scratchpad.id == window.id)
+    }) {
+        let move_action = MoveWindowToWorkspace {
+            window_id: Some(window.id),
+            reference: niri_ipc::WorkspaceReferenceArg::Id(stash_workspace.id),
+            focus: false,
         };
-    for window in windows.iter().filter(|window| state.scratchpads.iter().any(|scratchpad| scratchpad.id == window.id)) {
-        let move_action = MoveWindowToWorkspace { window_id: Some(window.id), reference: niri_ipc::WorkspaceReferenceArg::Id(stash_workspace.id), focus: false};
         let _ = socket.send(Request::Action(move_action));
     }
+    Ok(())
+}
+
+pub fn summon(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<()> {
+    let Ok(Response::FocusedOutput(Some(focused_output))) = socket.send(Request::FocusedOutput)?
+    else {
+        return Ok(());
+    };
+    let Ok(Response::FocusedWindow(Some(focused_window))) = socket.send(Request::FocusedWindow)?
+    else {
+        return Ok(());
+    };
+    if focused_window.id == scratchpad.id {
+        return Ok(())
+    }
+    if let Some(workspace_id) = focused_window.workspace_id {
+        let move_action = MoveWindowToWorkspace {
+            window_id: Some(scratchpad.id),
+            reference: niri_ipc::WorkspaceReferenceArg::Id(workspace_id),
+            focus: (false),
+        };
+        let _ = socket.send(Request::Action(move_action));
+    };
+    let move_action = MoveWindowToMonitor {
+        id: Some(scratchpad.id),
+        output: focused_output.name,
+    };
+    let _ = socket.send(Request::Action(move_action));
     Ok(())
 }

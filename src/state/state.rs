@@ -3,7 +3,7 @@ use std::env::var;
 use std::path::PathBuf;
 use std::{env, fs, io};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Scratchpad {
     pub id: u64,
     pub command: Option<Vec<String>>,
@@ -17,7 +17,7 @@ pub struct State {
 
 pub enum AddResult {
     Added,
-    AlreadyExists,
+    AlreadyExists(Scratchpad),
 }
 
 impl State {
@@ -68,12 +68,10 @@ impl State {
         id: u64,
         command_str: Option<String>,
     ) -> AddResult {
-        let exists = self.scratchpads.iter().any(|x| 
-            x.id == id && x.scratchpad_number == scratchpad_number
-            );
-        match exists {
-            true => AddResult::AlreadyExists,
-            false => {
+        let scratchpad = self.scratchpads.iter().find(|x| x.id == id && x.scratchpad_number == scratchpad_number);
+        match scratchpad {
+            Some(scratchpad) => AddResult::AlreadyExists(scratchpad.clone()),
+            None => {
                 let scratch = Scratchpad {
                     id,
                     command: command_str.map(|command| {
