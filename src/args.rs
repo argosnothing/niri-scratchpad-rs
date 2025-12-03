@@ -1,9 +1,23 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Subcommand, Debug)]
 pub enum Action {
-    Create { scratchpad_number: i32 },
-    Delete { scratchpad_number: i32 },
+    Create {
+        scratchpad_number: i32,
+        #[arg(short, long)]
+        output: Option<Output>,
+    },
+    Delete {
+        scratchpad_number: i32,
+        #[arg(short, long)]
+        output: Option<Output>,
+    },
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+#[value(rename_all = "lowercase")]
+pub enum Output {
+    Title,
 }
 
 #[derive(Parser, Debug)]

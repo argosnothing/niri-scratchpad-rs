@@ -6,6 +6,7 @@ use std::{fs, io};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Scratchpad {
+    pub title: Option<String>,
     pub id: u64,
     pub command: Option<Vec<String>>,
     pub scratchpad_number: i32,
@@ -67,6 +68,7 @@ impl State {
         &mut self,
         scratchpad_number: i32,
         id: u64,
+        title: Option<String>,
         command_str: Option<String>,
     ) -> Result<()> {
         self.scratchpads.push(Scratchpad {
@@ -78,38 +80,9 @@ impl State {
                     .collect::<Vec<String>>()
             }),
             scratchpad_number,
+            title
         });
         Ok(())
-    }
-
-    // Overloaded, we don't need this to double as a check, simply add O(1)
-    pub fn add_scratchpad_old(
-        &mut self,
-        scratchpad_number: i32,
-        id: u64,
-        command_str: Option<String>,
-    ) -> AddResult {
-        let scratchpad = self
-            .scratchpads
-            .iter()
-            .find(|x| x.scratchpad_number == scratchpad_number);
-        match scratchpad {
-            Some(scratchpad) => AddResult::AlreadyExists(scratchpad.clone()),
-            None => {
-                let scratch = Scratchpad {
-                    id,
-                    command: command_str.map(|command| {
-                        command
-                            .split_whitespace()
-                            .map(|s| s.to_string())
-                            .collect::<Vec<String>>()
-                    }),
-                    scratchpad_number,
-                };
-                self.scratchpads.push(scratch);
-                AddResult::Added
-            }
-        }
     }
 
     pub fn delete_scratchpad(&mut self, scratchpad_number: i32) -> Result<()> {
