@@ -8,7 +8,7 @@ You also will need to add this to your niri config:
 
 ```kdl
     workspace "stash" {
-        open-on-output "DP-1" # insert the output you actually have here. you can also probably just omit this as well. 
+        open-on-output "DP-1" // insert the output you actually have here. you can also probably just omit this as well. 
     }
     window-rule {
         open-on-workspace "stash"
