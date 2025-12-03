@@ -2,7 +2,7 @@
 
 ## This is currently a work in progress, but is technically functional for how I use scratchpads. 
 
-Niri scratchpad simply uses the currently focused window to mark a window as a scratchpad when ran. This means this is only really functional when using the scratchpad as a keybind. 
+Niri scratchpad simply uses the currently focused window to mark a window as a scratchpad when ran. This means this is only really functional when using the scratchpad as a keybind. Window binds will persist for the user session. 
 
 You also will need to add this to your niri config: 
 
