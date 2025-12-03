@@ -40,7 +40,7 @@ Assuming niri doesn't implement scratchpads natively ( We all pray ), by priorit
 
 1. Flag arguments ( currently scratchpad simply parses the first argument as a scratchpad index. )
 2. Scratchpad deletion 
-  Typing `niri-scratchpad -d 1` should unbind the window from that scratchpad index.
-  Windows tracked as a scratchpad should also be deleted from the tracked scratchpad list, freeing a spot. 
+  * Typing `niri-scratchpad -d 1` should unbind the window from that scratchpad index.
+  * Windows tracked as a scratchpad should also be deleted from the tracked scratchpad list, freeing a spot. 
 4. Spawn support
   This would require a diff mechanism than indexes, as spawn would need to have the command as part of the arg and i'd need to do matching off title or app_id
