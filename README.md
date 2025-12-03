@@ -26,6 +26,7 @@ delete scratchpad at register 1
 
 ## Command interface: 
 --output provides the property to standard out after comman execution. 
+```
 * create  <scratchpad_number>
   * options
     * -o, --output <OUTPUT> [title, appid]
@@ -34,7 +35,7 @@ delete scratchpad at register 1
     * -o, --output <OUTPUT> [title, appid]
 * get  <scratchpad_number> [title, appid]
 * help 
-
+```
 ## Installation
 It's just a rust binary, you'll need to build it with `niri_ipc` `serde` and `clap` crates. I provide a flake you can also consume as an input. 
 ```nix
