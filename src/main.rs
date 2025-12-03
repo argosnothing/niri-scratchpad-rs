@@ -1,4 +1,5 @@
-use crate::state::AddResult::{Added, AlreadyExists};
+use crate::scratchpad_action::ScratchpadStatus;
+use crate::state::Scratchpad;
 use clap::Parser;
 use niri_ipc::socket::Socket;
 use niri_ipc::{Request, Response};
@@ -18,7 +19,7 @@ fn main() -> std::io::Result<()> {
         return Ok(());
     };
 
-    let state = match state_file {
+    let mut state = match state_file {
         Ok(state) => state,
         Err(err) => {
             eprintln!("{}", err);
@@ -49,11 +50,33 @@ fn main() -> std::io::Result<()> {
             }
         }
         args::Action::Delete { scratchpad_number } => {
-            state.delete_scratchpad(scratchpad_number)?;
+            match scratchpad_check(&mut socket, &state, scratchpad_number) {
+                Ok(Some(_)) => {
+                    state.delete_scratchpad(scratchpad_number)?;
+                }
+                Ok(None) => return Ok(()),
+                Err(_) => return Ok(()),
+            };
         }
     };
 
     Ok(())
+}
+
+// if a scratchpad is no longer mapped to a window delete it from our state
+// Is Some scratchpad exists, return if it is mapped to a window or not
+fn scratchpad_check(
+    socket: &mut Socket,
+    state: &State,
+    scratchpad_number: i32,
+) -> std::io::Result<Option<ScratchpadWithStatus>> {
+    let Some(scratchpad) = state.get_scratchpad_by_number(scratchpad_number) else {
+        return Ok(None);
+    };
+    match scratchpad_action::check_status(socket, &scratchpad) {
+        Ok(status) => Ok(Some(ScratchpadWithStatus { scratchpad, status })),
+        Err(_) => Ok(None),
+    }
 }
 
 fn handle_focused_window(
@@ -63,30 +86,39 @@ fn handle_focused_window(
     window_id: u64,
     current_workspace_id: u64,
 ) -> std::io::Result<()> {
-    match state.add_scratchpad(scratchpad_number, window_id, None) {
-        Added => {
+    match scratchpad_check(socket, &state, scratchpad_number) {
+        Ok(Some(scratchpad_with_status)) => match scratchpad_with_status.status {
+            ScratchpadStatus::WindowMapped => {
+                let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
+                    return Ok(());
+                };
+
+                let Some(scratchpad_window) = windows.iter().find(|w| w.id == scratchpad_with_status.scratchpad.id) else {
+                    return Ok(());
+                };
+
+                let Some(workspace_id) = scratchpad_window.workspace_id else {
+                    return Ok(());
+                };
+
+                if workspace_id == current_workspace_id {
+                    scratchpad_action::stash(socket, &state, Some(scratchpad_with_status.scratchpad.scratchpad_number))?;
+                } else {
+                    scratchpad_action::summon(socket, &scratchpad_with_status.scratchpad)?;
+                }
+            }
+            ScratchpadStatus::WindowDropped => {
+                state.delete_scratchpad(scratchpad_number)?;
+                state.add_scratchpad(scratchpad_number, window_id, None)?;
+                state.update()?;
+            }
+        },
+        Ok(None) => {
+            state.add_scratchpad(scratchpad_number, window_id, None)?;
             state.update()?;
         }
-        AlreadyExists(scratchpad) => {
-            let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
-                return Ok(());
-            };
-
-            let Some(scratchpad_window) = windows.iter().find(|w| w.id == scratchpad.id) else {
-                return Ok(());
-            };
-
-            let Some(workspace_id) = scratchpad_window.workspace_id else {
-                return Ok(());
-            };
-
-            if workspace_id == current_workspace_id {
-                scratchpad_action::stash(socket, &state, Some(scratchpad.scratchpad_number))?;
-            } else {
-                scratchpad_action::summon(socket, &scratchpad)?;
-            }
-        }
-    }
+        Err(_) => return Ok(()),
+    };
     Ok(())
 }
 
@@ -105,4 +137,9 @@ fn handle_no_focused_window(
 
     scratchpad_action::summon(socket, scratchpad)?;
     Ok(())
+}
+
+struct ScratchpadWithStatus {
+    status: ScratchpadStatus,
+    scratchpad: Scratchpad,
 }

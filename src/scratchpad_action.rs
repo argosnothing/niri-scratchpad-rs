@@ -1,5 +1,10 @@
 use std::io::Result;
 
+pub enum ScratchpadStatus {
+    WindowMapped,
+    WindowDropped
+}
+
 use crate::state::{Scratchpad, State};
 use niri_ipc::{
     socket::Socket,
@@ -79,4 +84,14 @@ pub fn summon(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<()> {
     };
     let _ = socket.send(Request::Action(focus_action));
     Ok(())
+}
+
+pub fn check_status(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<ScratchpadStatus> {
+    let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
+        return Ok(ScratchpadStatus::WindowDropped);
+    };
+    match windows.iter().find(|window| scratchpad.id == window.id) {
+        Some(_) => Ok(ScratchpadStatus::WindowMapped),
+        None => Ok(ScratchpadStatus::WindowDropped),
+    }
 }

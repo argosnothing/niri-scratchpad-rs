@@ -44,7 +44,7 @@ impl State {
         }
     }
 
-    pub fn update(self) -> Result<()> {
+    pub fn update(&self) -> Result<()> {
         let state_path = Self::get_state_path()?;
         if state_path.exists() {
             let json = serde_json::to_string_pretty(&self)?;
@@ -68,8 +68,31 @@ impl State {
         scratchpad_number: i32,
         id: u64,
         command_str: Option<String>,
+    ) -> Result<()> {
+        self.scratchpads.push(Scratchpad {
+            id,
+            command: command_str.map(|command| {
+                command
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            }),
+            scratchpad_number,
+        });
+        Ok(())
+    }
+
+    // Overloaded, we don't need this to double as a check, simply add O(1)
+    pub fn add_scratchpad_old(
+        &mut self,
+        scratchpad_number: i32,
+        id: u64,
+        command_str: Option<String>,
     ) -> AddResult {
-        let scratchpad = self.scratchpads.iter().find(|x| x.scratchpad_number == scratchpad_number);
+        let scratchpad = self
+            .scratchpads
+            .iter()
+            .find(|x| x.scratchpad_number == scratchpad_number);
         match scratchpad {
             Some(scratchpad) => AddResult::AlreadyExists(scratchpad.clone()),
             None => {
@@ -89,10 +112,18 @@ impl State {
         }
     }
 
-    pub fn delete_scratchpad(mut self, scratchpad_number: i32) -> Result<()>{
-        self.scratchpads.retain(|scratchpad| scratchpad.scratchpad_number != scratchpad_number);
+    pub fn delete_scratchpad(&mut self, scratchpad_number: i32) -> Result<()> {
+        self.scratchpads
+            .retain(|scratchpad| scratchpad.scratchpad_number != scratchpad_number);
         self.update()?;
         Ok(())
+    }
+
+    pub fn get_scratchpad_by_number(&self, scratchpad_number: i32) -> Option<Scratchpad> {
+        self.scratchpads
+            .iter()
+            .find(|scratchpad| scratchpad.scratchpad_number == scratchpad_number)
+            .cloned()
     }
 }
 
