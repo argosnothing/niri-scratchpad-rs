@@ -73,6 +73,15 @@ fn main() -> std::io::Result<()> {
                 Err(_) => return Ok(()),
             };
         }
+        args::Action::Get { scratchpad_number, output } => {
+            match output {
+                Output::Title => {
+                    if let Some(scratchpad) = state.get_scratchpad_by_number(scratchpad_number){
+                        if let Some(title) = scratchpad.title { print!("{}", title) };
+                    };
+                },
+            }
+        },
     };
 
     Ok(())

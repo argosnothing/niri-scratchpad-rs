@@ -12,6 +12,10 @@ pub enum Action {
         #[arg(short, long)]
         output: Option<Output>,
     },
+    Get {
+        scratchpad_number: i32,
+        output: Output
+    }
 }
 
 #[derive(ValueEnum, Clone, Debug)]
