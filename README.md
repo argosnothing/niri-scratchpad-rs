@@ -16,9 +16,9 @@ This will take the currently focused window and bind it to niri-scratchpad regis
 
 A separate command is available for removing a scratchpad at a particular register. 
 ```kdl
-    Mod+Ctrl+Q            { spawn "niri-scratchpad" "delete" "2"; }
+    Mod+Ctrl+Q            { spawn "niri-scratchpad" "delete" "1"; }
 ```
-delete scratchpad at 1 register
+delete scratchpad at register 1
 
 ## Installation
 It's just a rust binary, you'll need to build it with niri_ipc crate and serde. I provide a flake you can also consume as an input. 
