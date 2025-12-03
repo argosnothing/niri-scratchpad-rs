@@ -68,7 +68,7 @@ impl State {
         id: u64,
         command_str: Option<String>,
     ) -> AddResult {
-        let scratchpad = self.scratchpads.iter().find(|x| x.id == id && x.scratchpad_number == scratchpad_number);
+        let scratchpad = self.scratchpads.iter().find(|x| x.scratchpad_number == scratchpad_number);
         match scratchpad {
             Some(scratchpad) => AddResult::AlreadyExists(scratchpad.clone()),
             None => {
