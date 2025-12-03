@@ -15,7 +15,7 @@ For binding to a keybind you would do:
 This will take the currently focused window and bind it to niri-scratchpad register 1. Pressing this keybind again will move the scratchpad to the stash workspace. 
 
 A separate command is available for removing a scratchpad at a particular register. 
-```
+```kdl
     Mod+Ctrl+Q            { spawn "niri-scratchpad" "delete" "2"; }
 ```
 delete scratchpad at 1 register
