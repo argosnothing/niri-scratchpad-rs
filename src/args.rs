@@ -6,6 +6,8 @@ pub enum Action {
         scratchpad_number: i32,
         #[arg(short, long)]
         output: Option<Output>,
+        #[arg(long, help="Initial scratchpad create will toggle floating on the window")]
+        as_float: bool,
     },
     Delete {
         scratchpad_number: i32,

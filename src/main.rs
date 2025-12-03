@@ -1,7 +1,7 @@
 use std::io::Result;
 
 use crate::args::Output;
-use crate::scratchpad_action::ScratchpadStatus;
+use crate::scratchpad_action::{set_floating, ScratchpadStatus};
 use crate::state::Scratchpad;
 use clap::Parser;
 use niri_ipc::socket::Socket;
@@ -34,6 +34,7 @@ fn main() -> Result<()> {
         args::Action::Create {
             scratchpad_number,
             output,
+            as_float,
         } => {
             let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused)
             else {
@@ -53,6 +54,7 @@ fn main() -> Result<()> {
                             current_workspace_id: current_workspace.id,
                         },
                         output,
+                        as_float,
                     )?;
                 }
                 None => {
@@ -64,7 +66,9 @@ fn main() -> Result<()> {
             scratchpad_number,
             output,
         } => {
-            if output.is_some() { print!("") };
+            if output.is_some() {
+                print!("")
+            };
             match scratchpad_check(&mut socket, &state, scratchpad_number) {
                 Ok(Some(_)) => {
                     state.delete_scratchpad(scratchpad_number)?;
@@ -77,21 +81,22 @@ fn main() -> Result<()> {
             scratchpad_number,
             output,
         } => {
-        let Some(scratchpad) = state.get_scratchpad_by_number(scratchpad_number) else {
-            return Ok(());
-        };
-        match output {
-            Output::Title => {
-                if let Some(title) = scratchpad.title {
-                    print!("{}", title)
-                };
-            }
-            Output::AppId => {
-                if let Some(app_id) = scratchpad.app_id {
-                    print!("{}", app_id)
+            let Some(scratchpad) = state.get_scratchpad_by_number(scratchpad_number) else {
+                return Ok(());
+            };
+            match output {
+                Output::Title => {
+                    if let Some(title) = scratchpad.title {
+                        print!("{}", title)
+                    };
                 }
-            },
-        }},
+                Output::AppId => {
+                    if let Some(app_id) = scratchpad.app_id {
+                        print!("{}", app_id)
+                    }
+                }
+            }
+        }
     };
 
     Ok(())
@@ -119,6 +124,7 @@ fn handle_focused_window(
     scratchpad_number: i32,
     context: FocusedWindowContext,
     output: Option<Output>,
+    as_float: bool,
 ) -> Result<()> {
     match scratchpad_check(socket, &state, scratchpad_number) {
         Ok(Some(scratchpad_with_status)) => match scratchpad_with_status.status {
@@ -183,13 +189,28 @@ fn handle_focused_window(
                         }
                     };
                 };
-                state.add_scratchpad(scratchpad_number, context.window_id, context.title, context.app_id, None)?;
+                state.add_scratchpad(
+                    scratchpad_number,
+                    context.window_id,
+                    context.title,
+                    context.app_id,
+                    None,
+                )?;
                 state.update()?;
             }
         },
         Ok(None) => {
-            state.add_scratchpad(scratchpad_number, context.window_id, context.title, context.app_id, None)?;
+            state.add_scratchpad(
+                scratchpad_number,
+                context.window_id,
+                context.title,
+                context.app_id,
+                None,
+            )?;
             state.update()?;
+            if as_float {
+                set_floating(socket, context.window_id)?;
+            }
         }
         Err(_) => return Ok(()),
     };

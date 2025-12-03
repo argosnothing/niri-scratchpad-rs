@@ -2,13 +2,13 @@ use std::io::Result;
 
 pub enum ScratchpadStatus {
     WindowMapped,
-    WindowDropped
+    WindowDropped,
 }
 
 use crate::state::{Scratchpad, State};
 use niri_ipc::{
     socket::Socket,
-    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
+    Action::{FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace},
     Request, Response,
 };
 // Ensures all scratchpads are stashed
@@ -25,20 +25,15 @@ pub fn stash(socket: &mut Socket, state: &State, scratchpad_number: Option<i32>)
     else {
         return Ok(());
     };
-    for window in windows.iter().filter(|window| {
-        match scratchpad_number {
-            Some(scratch_num) => {
-                state.scratchpads.iter().any(|scratchpad| scratchpad.scratchpad_number == scratch_num && scratchpad.id  == window.id)
-            },
-            None => {
-                state
-                .scratchpads
-                .iter()
-                .any(|scratchpad| scratchpad.id == window.id)
-            }
-        }
-    }
-    ) {
+    for window in windows.iter().filter(|window| match scratchpad_number {
+        Some(scratch_num) => state.scratchpads.iter().any(|scratchpad| {
+            scratchpad.scratchpad_number == scratch_num && scratchpad.id == window.id
+        }),
+        None => state
+            .scratchpads
+            .iter()
+            .any(|scratchpad| scratchpad.id == window.id),
+    }) {
         let move_action = MoveWindowToWorkspace {
             window_id: Some(window.id),
             reference: niri_ipc::WorkspaceReferenceArg::Id(stash_workspace.id),
@@ -83,6 +78,14 @@ pub fn summon(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<()> {
         id: (scratchpad.id),
     };
     let _ = socket.send(Request::Action(focus_action));
+    Ok(())
+}
+
+pub fn set_floating(socket: &mut Socket, window_id: u64) -> Result<()> {
+    let floating_action = MoveWindowToFloating {
+        id: (Some(window_id)),
+    };
+    let _ = socket.send(Request::Action(floating_action));
     Ok(())
 }
 
