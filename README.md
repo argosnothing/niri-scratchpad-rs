@@ -24,6 +24,18 @@ A separate command is available for removing a scratchpad at a particular regist
 ```
 delete scratchpad at register 1
 
+## Command interface: 
+--output provides the property to standard out after comman execution. 
+
+* `niri-scratchpad create <scratchpad_number>`
+  * options
+    * `-o, --output [title, appid]`
+* `niri-scratchpad delete <scratchpad_number>`
+  * options
+    * `-o, --output [title, appid]`
+* `niri-scratchpad get <scratchpad_number> [title, appid]`
+* `help` 
+
 ## Installation
 It's just a rust binary, you'll need to build it with `niri_ipc` `serde` and `clap` crates. I provide a flake you can also consume as an input. 
 ```nix
@@ -39,7 +51,3 @@ To put it in your path on nix:
       inputs.niri-scratchpad.packages.${pkgs.system}.default
     ];
 ```
-
-Additional goodies: 
-Niri scratchpad currently supports per command output of scratchpad data through the --output option as well as a dedicated get action for titles. This allows you to create things like dynamic buttons that show the title of the scratchpad on them. 
-![tmp iekuBMuMPc](https://github.com/user-attachments/assets/6ee1c705-b165-48bd-8916-0721cc4d2bb8)
