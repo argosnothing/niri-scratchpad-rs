@@ -3,7 +3,7 @@ use std::io::Result;
 use crate::state::{Scratchpad, State};
 use niri_ipc::{
     socket::Socket,
-    Action::{MoveWindowToMonitor, MoveWindowToWorkspace},
+    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
     Request, Response,
 };
 // Ensures all scratchpads are stashed
@@ -41,25 +41,34 @@ pub fn summon(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<()> {
     else {
         return Ok(());
     };
-    let Ok(Response::FocusedWindow(Some(focused_window))) = socket.send(Request::FocusedWindow)?
-    else {
+    let Ok(Response::FocusedWindow(focused_window)) = socket.send(Request::FocusedWindow)? else {
         return Ok(());
     };
-    if focused_window.id == scratchpad.id {
-        return Ok(())
-    }
+    let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
+        return Ok(());
+    };
+    if let Some(focused_window) = focused_window {
+        if focused_window.id == scratchpad.id {
+            return Ok(());
+        }
+    };
     let move_action = MoveWindowToMonitor {
         id: Some(scratchpad.id),
         output: focused_output.name,
     };
     let _ = socket.send(Request::Action(move_action));
-    if let Some(workspace_id) = focused_window.workspace_id {
-        let move_action = MoveWindowToWorkspace {
-            window_id: Some(scratchpad.id),
-            reference: niri_ipc::WorkspaceReferenceArg::Id(workspace_id),
-            focus: (true),
-        };
-        let _ = socket.send(Request::Action(move_action));
+    let Some(focused_workspace) = workspaces.iter().find(|workspace| workspace.is_focused) else {
+        return Ok(());
     };
+    let move_action = MoveWindowToWorkspace {
+        window_id: Some(scratchpad.id),
+        reference: niri_ipc::WorkspaceReferenceArg::Id(focused_workspace.id),
+        focus: (true),
+    };
+    let _ = socket.send(Request::Action(move_action));
+    let focus_action = FocusWindow {
+        id: (scratchpad.id),
+    };
+    let _ = socket.send(Request::Action(focus_action));
     Ok(())
 }

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::env::var;
+use std::io::Result;
 use std::path::PathBuf;
 use std::{env, fs, io};
 
@@ -21,7 +22,7 @@ pub enum AddResult {
 }
 
 impl State {
-    pub fn new() -> io::Result<Self> {
+    pub fn new() -> Result<Self> {
         let state_path = Self::get_state_path()?;
 
         if state_path.exists() {
@@ -43,7 +44,7 @@ impl State {
         }
     }
 
-    pub fn update(self) -> io::Result<()> {
+    pub fn update(self) -> Result<()> {
         let state_path = Self::get_state_path()?;
         if state_path.exists() {
             let json = serde_json::to_string_pretty(&self)?;
@@ -56,7 +57,7 @@ impl State {
         Ok(())
     }
 
-    fn get_state_path() -> io::Result<PathBuf> {
+    fn get_state_path() -> Result<PathBuf> {
         let runtime_dir = var("XDG_RUNTIME_DIR")
             .map_err(|_| io::Error::new(io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set"))?;
         Ok(PathBuf::from(runtime_dir).join("niri-scratchpad.json"))
@@ -86,6 +87,12 @@ impl State {
                 AddResult::Added
             }
         }
+    }
+
+    pub fn delete_scratchpad(mut self, scratchpad_number: i32) -> Result<()>{
+        self.scratchpads.retain(|scratchpad| scratchpad.scratchpad_number != scratchpad_number);
+        self.update()?;
+        Ok(())
     }
 }
 
