@@ -5,7 +5,8 @@
 Niri scratchpad simply uses the currently focused window to mark a window as a scratchpad when ran. This means this is only really functional when using the scratchpad as a keybind. 
 
 You also will need to add this to your niri config: 
-`
+
+```
     workspace "stash" {
         open-on-output "DP-1"
     }
@@ -16,12 +17,12 @@ You also will need to add this to your niri config:
         default-column-width  { fixed 920; }
         default-window-height { fixed 920; } // ~80% of 1080
     }
-`
+```
 
 For binding to a keybind you would do: 
-`
+```
     Mod+Q            { spawn "niri-scratchpad" "1"; }
-`
+```
 This will take the currently focused window and bind it to niri-scratchpad index 1. Pressing this keybind again will move the scratchpad to the stash workspace. 
 
 
