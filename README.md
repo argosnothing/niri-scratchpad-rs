@@ -29,7 +29,7 @@ delete scratchpad at register 1
 
 * `niri-scratchpad create <scratchpad_number>`
   * options
-    * `-o, --output [title, appid]`
+    * `-o, --output [title, appid] --as-float`
 * `niri-scratchpad delete <scratchpad_number>`
   * options
     * `-o, --output [title, appid]`
