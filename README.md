@@ -59,7 +59,7 @@ To put it in your path on nix:
 1. `--retrieve` option for scratchpad deletion
     1. `niri-scratchpad delete 1 --retrieve` will retrieve the deleted window from that scratchpad register, focusing it to the output.
        1. In cases that the window for the scratchpad register is currently in the stashed workspace, we first summon it to the current workspace & output and then delete it from that scratchpad register for reuse.
-    3. `remove-float` flag will remove floating on the window after retrieval on a deleted scratchpad window.
+    3. `--remove-float` flag will remove floating on the window after retrieval on a deleted scratchpad window.
 2. `niri-scratchpad spawn <scratchpad_number> <cmd_str>` action
     1. Instead of relying on current focused window for the scratchpads window id, this will spawn a window using the command, and then take that windows id as the scratchpad window id. This will be different than several other implementations that force the command to also keep track of title or appid. We will still be using the actual unique window id, so there will not be a need to type a scratchpad register to those properties.
     2. If an existing window is still in the register when spawn is called again, it will pull the scratchpad into focus similar to `niri-scratchpad create`
