@@ -2,10 +2,7 @@
 
 Dynamically assign windows as scratchpads against a numerical register. 
 
-The program will also manage windows that have been deleted since running the command last. If you invoke `niri-scratchpad create 1` and register 1 has been deleted since last excution, it will bind the currently focused window to that register instead as a scratchpad. 
-
-Scratchpad memory does not persist on logging out on session.
-
+You will need a static workspace called `stash` declared somewhere in you kdl config. This will be where a stashed scratchpad lives.
 ```kdl
     workspace "stash" {
         open-on-output "DP-1" // Your output name, or just omit this property entirely
