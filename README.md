@@ -2,7 +2,7 @@
 Dynamically assign windows as scratchpads against a numerical register. 
 
 ## Setup
-You will need a static workspace called `stash` declared somewhere in you niri config. This will be where a stashed scratchpad lives.
+You will need a static workspace called `stash` declared somewhere in you niri config. This will be where all stashed scratchpads live.
 ```kdl
     workspace "stash" {
         open-on-output "DP-1" // Your output name, or just omit this property entirely
