@@ -39,7 +39,16 @@ A separate command is available for removing a scratchpad at a particular regist
 `--as-float` during new scratchpad registration to a window, also put that window into floating mode.
 
 ## Installation
-It's just a rust binary, you'll need to build it with `niri_ipc` `serde` and `clap` crates. I provide a flake you can also consume as an input. 
+It's just a rust binary:  
+for `x86_64` I provide the executable directly. Download it, put it somewhere at `chmod +x niri-scratchpad`. Then run it with the options to use it.
+
+## Building
+Dependencies: 
+* `niri_ipc`
+* `serde`
+* `clap`
+
+## Nix (flakes)
 ```nix
 inputs {
     niri-scratchpad.url = "github:argosnothing/niri-scratchpad";
