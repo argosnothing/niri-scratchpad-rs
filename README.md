@@ -11,7 +11,9 @@ You will need a static workspace called `stash` declared somewhere in you niri c
 
 For binding to a keybind you would do: 
 ```kdl
+binds {
     Mod+Q            { spawn "niri-scratchpad" "create" "1"; }
+}
 ```
 * This will take the currently focused window and bind it to niri-scratchpad register 1. 
 * Pressing this keybind again will toggle stashing and unstashing the window when this command is reran. 
@@ -19,7 +21,9 @@ For binding to a keybind you would do:
 
 A separate command is available for removing a scratchpad at a particular register. 
 ```kdl
+binds {
     Mod+Ctrl+Q            { spawn "niri-scratchpad" "delete" "1"; }
+}
 ```
 * Delete scratchpad at register 1
 * This register will now be available again for the `niri-scratchpad create 1` command
