@@ -10,6 +10,19 @@ use state::State;
 pub mod args;
 pub mod scratchpad_action;
 pub mod state;
+
+struct ScratchpadWithStatus {
+    status: ScratchpadStatus,
+    scratchpad: Scratchpad,
+}
+
+struct FocusedWindowContext {
+    window_id: u64,
+    title: Option<String>,
+    app_id: Option<String>,
+    current_workspace_id: u64,
+}
+
 fn main() -> Result<()> {
     let state_file = State::new();
     let mut socket = Socket::connect()?;
@@ -156,8 +169,7 @@ fn handle_focused_window(
                     scratchpad_number,
                     title: scratchpad_window.title.clone(),
                     app_id: scratchpad_window.app_id.clone(),
-                    id: scratchpad_window.id,
-                    command: None,
+                    id: scratchpad_window.id
                 })?;
                 let Some(workspace_id) = scratchpad_window.workspace_id else {
                     return Ok(());
@@ -189,13 +201,18 @@ fn handle_focused_window(
                         }
                     };
                 };
-                state.add_scratchpad(
-                    scratchpad_number,
-                    context.window_id,
-                    context.title,
-                    context.app_id,
-                    None,
-                )?;
+                {
+                    let this = &mut state;
+                    let id = context.window_id;
+                    let title = context.title;
+                    let app_id = context.app_id;
+                    this.scratchpads.push(Scratchpad {
+                        title,
+                        app_id,
+                        id,
+                        scratchpad_number
+                    });
+                };
                 state.update()?;
                 if as_float {
                     set_floating(socket, context.window_id)?;
@@ -203,13 +220,18 @@ fn handle_focused_window(
             }
         },
         Ok(None) => {
-            state.add_scratchpad(
-                scratchpad_number,
-                context.window_id,
-                context.title,
-                context.app_id,
-                None,
-            )?;
+            {
+                let this = &mut state;
+                let id = context.window_id;
+                let title = context.title;
+                let app_id = context.app_id;
+                this.scratchpads.push(Scratchpad {
+                    title,
+                    app_id,
+                    id,
+                    scratchpad_number
+                });
+            };
             state.update()?;
             if as_float {
                 set_floating(socket, context.window_id)?;
@@ -237,14 +259,10 @@ fn handle_no_focused_window(
     Ok(())
 }
 
-struct ScratchpadWithStatus {
-    status: ScratchpadStatus,
-    scratchpad: Scratchpad,
-}
-
-struct FocusedWindowContext {
-    window_id: u64,
-    title: Option<String>,
-    app_id: Option<String>,
-    current_workspace_id: u64,
+fn sync_state(socket: &mut Socket, state: &mut State) -> Result<()> {
+    let tracked_scratchpads = state.get_tracked_scratchpads();
+    let Ok(scratchpad_statuses) = scratchpad_action::get_all_scratchpad_status(socket, tracked_scratchpads) else {
+        return Ok(());
+    };
+    state.syncronize_scratchpads(scratchpad_statuses)
 }

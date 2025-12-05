@@ -1,11 +1,11 @@
-use std::io::Result;
+use std::{collections::HashMap, io::Result};
 
 pub enum ScratchpadStatus {
     WindowMapped,
     WindowDropped,
 }
 
-use crate::state::{Scratchpad, State};
+use crate::state::{Scratchpad, ScratchpadUpdate, State};
 use niri_ipc::{
     socket::Socket,
     Action::{FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace},
@@ -97,4 +97,35 @@ pub fn check_status(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<Scra
         Some(_) => Ok(ScratchpadStatus::WindowMapped),
         None => Ok(ScratchpadStatus::WindowDropped),
     }
+}
+
+pub fn get_all_scratchpad_status<'a>(
+    socket: &mut Socket,
+    scratchpads: Vec<&'a Scratchpad>,
+) -> Result<Vec<ScratchpadUpdate<'a>>> {
+    let mut scratchpad_state: Vec<ScratchpadUpdate> = Vec::new();
+    let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
+        return Ok(scratchpad_state); //return an empty map
+    };
+    match scratchpads
+        .iter()
+        .find(|scratchpad| !windows.iter().any(|window| window.id == scratchpad.id))
+    {
+        Some(orphaned_scratchpad) => {
+            scratchpad_state.push(ScratchpadUpdate::Delete(orphaned_scratchpad))
+        }
+        None => {}
+    };
+    for window in windows {
+        match scratchpads
+            .iter()
+            .find(|scratchpad| scratchpad.id == window.id)
+        {
+            Some(scratchpad) => {
+                scratchpad_state.push(ScratchpadUpdate::Update(scratchpad));
+            }
+            None => {}
+        };
+    }
+    Ok(scratchpad_state)
 }

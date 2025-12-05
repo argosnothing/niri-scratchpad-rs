@@ -1,15 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::env::var;
-use std::io::Result;
-use std::path::PathBuf;
-use std::{fs, io};
+use std::{env::var, io::{Result}, path::PathBuf, hash::{Hash, Hasher}, fs, io};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct Scratchpad {
     pub title: Option<String>,
     pub app_id: Option<String>,
     pub id: u64,
-    pub command: Option<Vec<String>>,
     pub scratchpad_number: i32,
 }
 
@@ -21,6 +17,12 @@ pub struct State {
 pub enum AddResult {
     Added,
     AlreadyExists(Scratchpad),
+}
+
+pub enum ScratchpadUpdate<'a> {
+    Add(Scratchpad),
+    Update(&'a Scratchpad),
+    Delete(&'a Scratchpad),
 }
 
 impl State {
@@ -71,16 +73,9 @@ impl State {
         id: u64,
         title: Option<String>,
         app_id: Option<String>,
-        command_str: Option<String>,
     ) -> Result<()> {
         self.scratchpads.push(Scratchpad {
             id,
-            command: command_str.map(|command| {
-                command
-                    .split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-            }),
             scratchpad_number,
             app_id,
             title,
@@ -102,7 +97,39 @@ impl State {
             .cloned()
     }
 
-    pub fn update_scratchpad(&mut self, scratchpad_update:Scratchpad) -> Result<()> {
+    pub fn get_tracked_scratchpads(&self) -> Vec<&Scratchpad> {
+        self.scratchpads.iter().collect()
+    }
+
+    pub fn syncronize_scratchpads(
+        &mut self,
+        scratchpad_updates: Vec<ScratchpadUpdate>,
+    ) -> Result<()> {
+        for scratchpad_update in scratchpad_updates {
+            match scratchpad_update {
+                ScratchpadUpdate::Add(scratchpad) => self.scratchpads.push(scratchpad),
+                ScratchpadUpdate::Update(scratchpad) => {
+                    if let Some(stored_scratchpad) =
+                        self.scratchpads.iter_mut().find(|found_scratchpad| {
+                            found_scratchpad.scratchpad_number == scratchpad.scratchpad_number
+                        })
+                    {
+                        stored_scratchpad.title = scratchpad.title.clone();
+                        stored_scratchpad.id = scratchpad.id;
+                        stored_scratchpad.app_id = scratchpad.app_id.clone();
+                    }
+                }
+                ScratchpadUpdate::Delete(scratchpad) => {
+                    self.scratchpads.retain(|stored_scratchpad| {
+                        stored_scratchpad.scratchpad_number != scratchpad.scratchpad_number
+                    })
+                }
+            };
+        }
+        Ok(())
+    }
+
+    pub fn update_scratchpad(&mut self, scratchpad_update: Scratchpad) -> Result<()> {
         let Some(scratchpad) = self
             .scratchpads
             .iter_mut()
