@@ -31,9 +31,7 @@ impl State {
 
         if state_path.exists() {
             let contents = fs::read_to_string(&state_path)?;
-            let state: State = serde_json::from_str(&contents).unwrap_or_else(|_| State {
-                scratchpads: vec![],
-            });
+            let state: State = serde_json::from_str(&contents)?;
             Ok(state)
         } else {
             let state = State {

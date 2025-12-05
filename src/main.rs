@@ -267,6 +267,6 @@ fn sync_state(socket: &mut Socket, state: &mut State) -> Result<()> {
     let Ok(scratchpad_statuses) = scratchpad_action::get_all_scratchpad_status(socket, tracked_scratchpads) else {
         return Ok(());
     };
-    state.syncronize_scratchpads(scratchpad_statuses)?;
+    state.syncronize_scratchpads(scratchpad_statuses);
     state.update()
 }
