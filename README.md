@@ -7,7 +7,7 @@ Dynamically assign windows as scratchpads against a numerical register.
 
 niri-scratchpad ( as of version 1.0 ) is a running process that lives in memory.  
 ```kdl
-    spawn-sh-at-startup "niri-scratchpad daemon"
+spawn-sh-at-startup "niri-scratchpad daemon"
 ```
 
 You will need a static workspace called `stash` declared somewhere in you niri config. This will be where all stashed scratchpads live.  
