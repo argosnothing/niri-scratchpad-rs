@@ -1,5 +1,7 @@
 # Dynamic Niri Scratchpad
 Dynamically assign windows as scratchpads against a numerical register. 
+![tmp XVc2CNDYYc](https://github.com/user-attachments/assets/a1cf8329-61da-423a-a362-17a6a06274d2)
+
 
 ## Setup
 
