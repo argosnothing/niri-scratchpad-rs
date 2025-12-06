@@ -37,7 +37,8 @@ binds {
 * Delete scratchpad at register 1
 * This register will now be available again for the `niri-scratchpad create 1` command
 
-## Command interface: 
+## Command interface:
+* `niri-scratchpad daemon` Start the niri-scratchpad daemon
 * `niri-scratchpad create <scratchpad_number>`
   * options
     * `-o, --output [title, appid]`
