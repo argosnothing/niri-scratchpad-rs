@@ -38,11 +38,11 @@ binds {
 
 ## Command interface:
 * `niri-scratchpad daemon` Start the niri-scratchpad daemon
-* `niri-scratchpad create <scratchpad_number>`
+* `niri-scratchpad create <scratchpad_number>` create **OR** summon a scratchpad window at `<scratchpad_number>`
   * options
     * `-o, --output [title, appid]`
     * `--as-float`
-* `niri-scratchpad delete <scratchpad_number>`
+* `niri-scratchpad delete <scratchpad_number>` delete a scratchpad at `<scratchpad_number>`, the deleted scratchpad will have its window summoned to curent workspace
   * options
     * `-o, --output [title, appid]`
 * `niri-scratchpad get <scratchpad_number> [title, appid]`
@@ -56,8 +56,6 @@ It's just a rust binary:
 for `x86_64` I provide the executable directly. Download it, put it somewhere at `chmod +x niri-scratchpad`. Then run it with the options to use it.
 
 ## Building
-Please use `v1.0` branch as main will have heavy dev for a little bit. 
-
 Dependencies:
 * `rust`
 * `cargo`
@@ -68,7 +66,7 @@ Dependencies:
 ## Nix (flakes)
 ```nix
 inputs {
-    niri-scratchpad.url = "github:argosnothing/niri-scratchpad/v1.0";
+    niri-scratchpad.url = "github:argosnothing/niri-scratchpad";
 }
 ```
 
