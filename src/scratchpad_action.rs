@@ -104,12 +104,11 @@ pub fn summon(
     Ok(())
 }
 
-pub fn set_floating(socket: &mut Socket, window_id: u64) -> Result<()> {
+pub fn set_floating(socket: &mut Socket, window_id: u64) {
     let floating_action = MoveWindowToFloating {
         id: (Some(window_id)),
     };
     let _ = socket.send(Request::Action(floating_action));
-    Ok(())
 }
 
 pub fn check_status(socket: &mut Socket, scratchpad: &Scratchpad) -> Result<ScratchpadStatus> {

@@ -79,7 +79,7 @@ fn handle_client(stream: std::os::unix::net::UnixStream, state: &mut State) -> R
                     result.unwrap_or_default()
                 }
                 None => {
-                    handle_no_focused_window(&mut socket, &state, scratchpad_number)?;
+                    handle_no_focused_window(&mut socket, state, scratchpad_number)?;
                     String::new()
                 }
             }
@@ -92,7 +92,7 @@ fn handle_client(stream: std::os::unix::net::UnixStream, state: &mut State) -> R
                     let Ok(_) = scratchpad_action::summon(&mut socket, state, ScratchpadInformation::Id(scratchpad_number)) else {
                         return Ok(());
                     };
-                    state.delete_scratchpad(scratchpad_number)?;
+                    state.delete_scratchpad(scratchpad_number);
                 }
                 String::new()
             }
@@ -168,7 +168,7 @@ fn handle_focused_window(
                     title: scratchpad_window.title.clone(),
                     app_id: scratchpad_window.app_id.clone(),
                     id: scratchpad_window.id
-                })?;
+                });
                 
                 let Some(workspace_id) = scratchpad_window.workspace_id else {
                     return Ok(output_value);
@@ -187,7 +187,7 @@ fn handle_focused_window(
                 Ok(output_value)
             }
             ScratchpadStatus::WindowDropped => {
-                state.delete_scratchpad(scratchpad_number)?;
+                state.delete_scratchpad(scratchpad_number);
                 
                 let output_value = if let Some(output) = output {
                     match output {
@@ -206,7 +206,7 @@ fn handle_focused_window(
                 });
                 
                 if as_float {
-                    set_floating(socket, context.window_id)?;
+                    set_floating(socket, context.window_id);
                 }
                 
                 Ok(output_value)
@@ -220,7 +220,7 @@ fn handle_focused_window(
                 scratchpad_number
             });
             if as_float {
-                set_floating(socket, context.window_id)?;
+                set_floating(socket, context.window_id);
             }
             Ok(None)
         }

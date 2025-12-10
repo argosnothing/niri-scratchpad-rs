@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{io::{Result}, hash::{Hash}};
+use std::{hash::Hash, io::Result};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct Scratchpad {
@@ -48,10 +48,9 @@ impl State {
         Ok(())
     }
 
-    pub fn delete_scratchpad(&mut self, scratchpad_number: i32) -> Result<()> {
+    pub fn delete_scratchpad(&mut self, scratchpad_number: i32) {
         self.scratchpads
             .retain(|scratchpad| scratchpad.scratchpad_number != scratchpad_number);
-        Ok(())
     }
 
     pub fn get_scratchpad_by_number(&self, scratchpad_number: i32) -> Option<Scratchpad> {
@@ -97,16 +96,15 @@ impl State {
         Ok(())
     }
 
-    pub fn update_scratchpad(&mut self, scratchpad_update: Scratchpad) -> Result<()> {
+    pub fn update_scratchpad(&mut self, scratchpad_update: Scratchpad) {
         let Some(scratchpad) = self
             .scratchpads
             .iter_mut()
             .find(|scratchpad| scratchpad.scratchpad_number == scratchpad_update.scratchpad_number)
         else {
-            return Ok(());
+            return ();
         };
         *scratchpad = scratchpad_update;
-        Ok(())
     }
 }
 
