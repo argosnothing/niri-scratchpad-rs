@@ -54,15 +54,17 @@ pub fn summon(
     state: &State,
     scratchpad_info: ScratchpadInformation,
 ) -> Result<()> {
-    let Ok(Response::FocusedOutput(Some(focused_output))) = socket.send(Request::FocusedOutput)?
-    else {
-        return Ok(());
-    };
-    let Ok(Response::FocusedWindow(focused_window)) = socket.send(Request::FocusedWindow)? else {
-        return Ok(());
-    };
-    let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
-        return Ok(());
+    let (focused_output, focused_window, workspaces) = match (
+        socket.send(Request::FocusedOutput)?,
+        socket.send(Request::FocusedWindow)?,
+        socket.send(Request::Workspaces)?,
+    ) {
+        (
+            Ok(Response::FocusedOutput(Some(focused_output))),
+            Ok(Response::FocusedWindow(focused_window)),
+            Ok(Response::Workspaces(workspaces)),
+        ) => (focused_output, focused_window, workspaces),
+        _ => return Ok(()),
     };
     let scratchpad: &Scratchpad;
     match scratchpad_info {
@@ -72,8 +74,8 @@ pub fn summon(
             } else {
                 return Ok(());
             }
-        },
-        ScratchpadInformation::Scratchpad(scratch) => { scratchpad = scratch },
+        }
+        ScratchpadInformation::Scratchpad(scratch) => scratchpad = scratch,
     };
 
     if let Some(focused_window) = focused_window {
