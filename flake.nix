@@ -34,6 +34,7 @@
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
+            allowBuiltinFetchGit = false;
           };
           nativeBuildInputs = with pkgs; [
             pkg-config
