@@ -15,7 +15,7 @@ use niri_ipc::{
 pub fn stash(socket: &mut Socket, state: &State, scratchpad_number: Option<i32>) {
     let (windows, workspaces) = match (
         socket.send(Request::Windows),
-        socket.send(Request::Workspaces),
+        socket.send(Request::WorkspacesWithHidden),
     ) {
         (Ok(Ok(Response::Windows(windows))), Ok(Ok(Response::Workspaces(workspaces)))) => {
             (windows, workspaces)
