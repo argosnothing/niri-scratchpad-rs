@@ -83,3 +83,10 @@ environment.systemPackages = [
 ## Extra Resources for scratchpads in niri
 * Static scratchpads you can bind with a spawn command [gvolpe](https://github.com/gvolpe/niri-scratchpad)
 * [niri scratchpad discussion](https://github.com/YaLTeR/niri/discussions/329)
+
+## Secret Bonus
+I have an [experimental branch](https://github.com/argosnothing/niri-scratchpad-rs/tree/hidden-workspaces) that uses a [draft niri PR](https://github.com/YaLTeR/niri/pull/2997) i've been working on.  
+
+I'm daily driving this as it gives me a full scratchpad implementation that hides the workspace where my stashed scratchpads live. This PR should also work with other implementations as long as you make sure you stashed workspace also has `hidden true` in it and you do `niri msg workspaces-with-hidden` instead of just `niri msg workspaces`. This implementation does not advertise hidden workspaces to event stream, and only updates state with hidden workspaces for that specific ipc action, so your bars and widgets that show workspaces will not show those hidden workspaces.  
+
+If you plan on using this please let me know if you run into any bugs, any feedback is welcome! 
