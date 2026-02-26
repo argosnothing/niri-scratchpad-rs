@@ -7,9 +7,9 @@ pub enum RegisterStatus {
 
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    socket::Socket,
     Action::{FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace},
     Request, Response,
+    socket::Socket,
 };
 
 pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {

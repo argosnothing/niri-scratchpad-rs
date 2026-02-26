@@ -6,6 +6,7 @@ pub mod args;
 pub mod daemon;
 pub mod register_action;
 pub mod state;
+pub mod target_action;
 
 fn main() -> Result<()> {
     if std::env::args().any(|arg| arg == "daemon") {

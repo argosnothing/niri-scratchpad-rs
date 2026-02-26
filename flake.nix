@@ -45,13 +45,12 @@
             buildInputs = [
               openssl
               pkg-config
-              rust-analyzer
               eza
               fd
 
-              # use ONE toolchain consistently
               rust-bin.beta.latest.default
               rust-bin.beta.latest.rust-src
+              rust-bin.beta.latest.rust-analyzer
             ];
 
             shellHook = ''

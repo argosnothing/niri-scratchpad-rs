@@ -1,5 +1,6 @@
-use crate::register_action::{set_floating, RegisterInformation, RegisterStatus};
+use crate::register_action::{RegisterInformation, RegisterStatus, set_floating};
 use crate::state::{Register, State};
+use crate::target_action::{self, get_windows_by_property};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -136,7 +137,41 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             String::new()
         }
         Action::Target { property, spawn } => {
-            todo!();
+            let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused)
+            else {
+                return Ok(());
+            };
+            let window_target_information =
+                get_windows_by_property(&mut socket, &property, current_workspace.id);
+
+            if let Some(command) = spawn
+                && window_target_information.windows.is_empty()
+            {
+                target_action::spawn(&mut socket, command);
+                return Ok(());
+            };
+
+            let Some(stash_workspace) = workspaces
+                .iter()
+                .find(|workspace| Some("stash") == workspace.name.as_deref())
+            else {
+                return Ok(());
+            };
+            if !window_target_information.windows.is_empty() {
+                // tl;dr if there are ny matching windows found in the stash workspace, we simply move
+                // everything up to the focused workspace, regardless if there are matched windows in current workspace
+                // otherwise we'll be playing switcheroo if matched windows exist in stash and focused simultaneously
+                if window_target_information.found_in_stash {
+                    for window in window_target_information.windows {
+                        target_action::summon_window(&mut socket, &window, current_workspace.id)?;
+                    }
+                } else {
+                    for window in window_target_information.windows {
+                        target_action::stash_window(&mut socket, &window, stash_workspace.id);
+                    }
+                }
+            }
+            return Ok(());
         }
     };
 
