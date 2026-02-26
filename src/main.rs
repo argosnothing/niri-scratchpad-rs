@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Result, Write};
 use std::os::unix::net::UnixStream;
 pub mod args;
 pub mod daemon;
-pub mod scratchpad_action;
+pub mod register_action;
 pub mod state;
 
 fn main() -> Result<()> {

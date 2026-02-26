@@ -7,18 +7,16 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      rust-overlay,
-      flake-utils,
-      ...
-    }:
+  outputs = {
+    self,
+    nixpkgs,
+    rust-overlay,
+    flake-utils,
+    ...
+  }:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        overlays = [ (import rust-overlay) ];
+      system: let
+        overlays = [(import rust-overlay)];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
@@ -26,8 +24,7 @@
           cargo = pkgs.rust-bin.beta.latest.default;
           rustc = pkgs.rust-bin.beta.latest.default;
         };
-      in
-      {
+      in {
         packages.default = rustPlatform.buildRustPackage {
           pname = "niri-scratchpad";
           version = "1.1.0";
@@ -43,22 +40,26 @@
           ];
         };
 
-        devShells.default =
-          with pkgs;
+        devShells.default = with pkgs;
           mkShell {
             buildInputs = [
               openssl
               pkg-config
               rust-analyzer
-              cargo
               eza
               fd
+
+              # use ONE toolchain consistently
               rust-bin.beta.latest.default
+              rust-bin.beta.latest.rust-src
             ];
 
             shellHook = ''
               alias ls=eza
               alias find=fd
+
+              # point rust-analyzer at std sources
+              export RUST_SRC_PATH="${pkgs.rust-bin.beta.latest.rust-src}/lib/rustlib/src/rust/library"
             '';
           };
       }

@@ -1,8 +1,8 @@
-use crate::scratchpad_action::{set_floating, ScratchpadInformation, ScratchpadStatus};
-use crate::state::{Scratchpad, State};
+use crate::register_action::{set_floating, RegisterInformation, RegisterStatus};
+use crate::state::{Register, State};
 use crate::{
     args::{Action, Output},
-    scratchpad_action,
+    register_action,
 };
 use niri_ipc::socket::Socket;
 use niri_ipc::{Request as NiriRequest, Response as NiriResponse};
@@ -14,9 +14,9 @@ use std::{
     path::PathBuf,
 };
 
-struct ScratchpadWithStatus {
-    status: ScratchpadStatus,
-    scratchpad: Scratchpad,
+struct RegisterWithStatus {
+    status: RegisterStatus,
+    register: Register,
 }
 
 struct FocusedWindowContext {
@@ -66,7 +66,7 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
     let response = match action {
         Action::Daemon => return Ok(()),
         Action::Create {
-            scratchpad_number,
+            register_number,
             output,
             as_float,
         } => {
@@ -80,7 +80,7 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                     let result = handle_focused_window(
                         &mut socket,
                         state,
-                        scratchpad_number,
+                        register_number,
                         FocusedWindowContext {
                             window_id: window.id,
                             title: window.title,
@@ -93,47 +93,50 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                     result.unwrap_or_default()
                 }
                 None => {
-                    handle_no_focused_window(&mut socket, state, scratchpad_number);
+                    handle_no_focused_window(&mut socket, state, register_number);
                     String::new()
                 }
             }
         }
         Action::Delete {
-            scratchpad_number,
+            register_number,
             output,
         } => {
             if output.is_some() {
                 String::new()
             } else {
-                if scratchpad_check(&mut socket, state, scratchpad_number).is_some() {
-                    let Ok(_) = scratchpad_action::summon(
+                if register_check(&mut socket, state, register_number).is_some() {
+                    let Ok(_) = register_action::summon(
                         &mut socket,
                         state,
-                        ScratchpadInformation::Id(scratchpad_number),
+                        RegisterInformation::Id(register_number),
                     ) else {
                         return Ok(());
                     };
-                    state.delete_scratchpad(scratchpad_number);
+                    state.delete_register(register_number);
                 }
                 String::new()
             }
         }
         Action::Get {
-            scratchpad_number,
+            register_number,
             output,
         } => {
             sync_state(&mut socket, state);
-            let Some(scratchpad) = state.get_scratchpad_by_number(scratchpad_number) else {
+            let Some(register) = state.get_register_by_number(register_number) else {
                 return write_response(&stream, "");
             };
             match output {
-                Output::Title => scratchpad.title.unwrap_or_default(),
-                Output::AppId => scratchpad.app_id.unwrap_or_default(),
+                Output::Title => register.title.unwrap_or_default(),
+                Output::AppId => register.app_id.unwrap_or_default(),
             }
         }
         Action::Sync => {
             sync_state(&mut socket, state);
             String::new()
+        }
+        Action::Target { property, spawn } => {
+            todo!();
         }
     };
 
@@ -146,72 +149,73 @@ fn write_response(stream: &UnixStream, response: &str) -> Result<()> {
     Ok(())
 }
 
-fn scratchpad_check(
+fn register_check(
     socket: &mut Socket,
     state: &State,
-    scratchpad_number: i32,
-) -> Option<ScratchpadWithStatus> {
-    let scratchpad = state.get_scratchpad_by_number(scratchpad_number)?;
-    Some(ScratchpadWithStatus {
-        status: scratchpad_action::check_status(socket, &scratchpad),
-        scratchpad,
+    register_number: i32,
+) -> Option<RegisterWithStatus> {
+    let register = state.get_register_by_number(register_number)?;
+    Some(RegisterWithStatus {
+        status: register_action::check_status(socket, &register),
+        register,
     })
 }
 
 fn handle_focused_window(
     socket: &mut Socket,
     state: &mut State,
-    scratchpad_number: i32,
+    register_number: i32,
     context: FocusedWindowContext,
     output: Option<Output>,
     as_float: bool,
 ) -> Option<String> {
-    match scratchpad_check(socket, state, scratchpad_number) {
-        Some(scratchpad_with_status) => match scratchpad_with_status.status {
-            ScratchpadStatus::WindowMapped => {
+    match register_check(socket, state, register_number) {
+        Some(register_with_status) => match register_with_status.status {
+            RegisterStatus::WindowMapped => {
                 let Ok(Ok(NiriResponse::Windows(windows))) = socket.send(NiriRequest::Windows)
                 else {
                     return None;
                 };
-                let scratchpad_window = windows
+                let register_window = windows
                     .iter()
-                    .find(|w| w.id == scratchpad_with_status.scratchpad.id)?;
+                    .find(|w| w.id == register_with_status.register.window_id)?;
 
                 let output_value = match output {
-                    Some(Output::Title) => scratchpad_window.title.clone(),
-                    Some(Output::AppId) => scratchpad_window.app_id.clone(),
+                    Some(Output::Title) => register_window.title.clone(),
+                    Some(Output::AppId) => register_window.app_id.clone(),
                     None => None,
                 };
 
-                state.update_scratchpad(Scratchpad {
-                    scratchpad_number,
-                    title: scratchpad_window.title.clone(),
-                    app_id: scratchpad_window.app_id.clone(),
-                    id: scratchpad_window.id,
+                state.update_register(Register {
+                    number: register_number,
+                    title: register_window.title.clone(),
+                    app_id: register_window.app_id.clone(),
+                    window_id: register_window.id,
                 });
 
-                let Some(workspace_id) = scratchpad_window.workspace_id else {
+                let Some(workspace_id) = register_window.workspace_id else {
                     return output_value;
                 };
 
                 if workspace_id == context.current_workspace_id {
-                    scratchpad_action::stash(
+                    register_action::stash(
                         socket,
                         state,
-                        Some(scratchpad_with_status.scratchpad.scratchpad_number),
+                        Some(register_with_status.register.number),
                     );
                 } else {
-                    scratchpad_action::summon(
+                    register_action::summon(
                         socket,
                         state,
-                        ScratchpadInformation::Scratchpad(&scratchpad_with_status.scratchpad),
-                    ).ok();
+                        RegisterInformation::Register(&register_with_status.register),
+                    )
+                    .ok();
                 }
 
                 output_value
             }
-            ScratchpadStatus::WindowDropped => {
-                state.delete_scratchpad(scratchpad_number);
+            RegisterStatus::WindowDropped => {
+                state.delete_register(register_number);
 
                 let output_value = if let Some(output) = output {
                     match output {
@@ -222,11 +226,11 @@ fn handle_focused_window(
                     None
                 };
 
-                state.scratchpads.push(Scratchpad {
+                state.registers.push(Register {
                     title: context.title,
                     app_id: context.app_id,
-                    id: context.window_id,
-                    scratchpad_number,
+                    window_id: context.window_id,
+                    number: register_number,
                 });
 
                 if as_float {
@@ -237,11 +241,11 @@ fn handle_focused_window(
             }
         },
         None => {
-            state.scratchpads.push(Scratchpad {
+            state.registers.push(Register {
                 title: context.title,
                 app_id: context.app_id,
-                id: context.window_id,
-                scratchpad_number,
+                window_id: context.window_id,
+                number: register_number,
             });
             if as_float {
                 set_floating(socket, context.window_id);
@@ -251,31 +255,26 @@ fn handle_focused_window(
     }
 }
 
-fn handle_no_focused_window(socket: &mut Socket, state: &State, scratchpad_number: i32) {
-    let Some(scratchpad) = state
-        .scratchpads
-        .iter()
-        .find(|s| s.scratchpad_number == scratchpad_number)
-    else {
+fn handle_no_focused_window(socket: &mut Socket, state: &State, register_number: i32) {
+    let Some(register) = state.registers.iter().find(|r| r.number == register_number) else {
         return;
     };
 
-    scratchpad_action::summon(socket, state, ScratchpadInformation::Scratchpad(scratchpad)).ok();
+    register_action::summon(socket, state, RegisterInformation::Register(register)).ok();
 }
 
 fn sync_state(socket: &mut Socket, state: &mut State) {
-    let tracked_scratchpads = state.get_tracked_scratchpads();
-    let Ok(scratchpad_statuses) =
-        scratchpad_action::get_all_scratchpad_status(socket, tracked_scratchpads)
+    let tracked_registers = state.get_tracked_registers();
+    let Ok(register_statuses) = register_action::get_all_register_status(socket, tracked_registers)
     else {
         return;
     };
-    state.syncronize_scratchpads(scratchpad_statuses).ok();
+    state.syncronize_registers(register_statuses).ok();
 }
 
 fn get_socket_path() -> Result<PathBuf> {
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
     })?;
-    Ok(PathBuf::from(runtime_dir).join("niri-scratchpad.sock"))
+    Ok(PathBuf::from(runtime_dir).join("niri-register.sock"))
 }
