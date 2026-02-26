@@ -42,10 +42,12 @@ Spawn if not running:
 ```kdl
 binds {
     Mod+Return {
-        spawn "niri-scratchpad" "target" "appid" "alacritty" "--spawn" "alacritty";
+        spawn "niri-scratchpad" "target" "--spawn" "alacritty" "appid" "alacritty" ;
     }
 }
 ```
+
+One note, is while `--as-float` is technically available with the spawn command, initial spawn cannot inherit the floating behavior. I suggest setting this through niri window rules if you want that behavior. Similar to auto startup if you want that
 
 ---
 
