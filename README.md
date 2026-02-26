@@ -1,4 +1,4 @@
-# Dynamic Niri Scratchpad 2.0
+# Niri Scratchpad 2.0
 No config files required.
 
 ![tmp XVc2CNDYYc](https://github.com/user-attachments/assets/a1cf8329-61da-423a-a362-17a6a06274d2)
