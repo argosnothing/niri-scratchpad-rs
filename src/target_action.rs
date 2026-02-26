@@ -90,7 +90,7 @@ pub fn summon_window(socket: &mut Socket, window: &Window, workspace_id: u64) ->
 pub fn handle_target(property: Property, spawn: Option<String>, as_float: bool) -> Result<()> {
     let mut socket = Socket::connect()?;
 
-    let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
+    let Ok(Response::Workspaces(workspaces)) = socket.send(Request::WorkspacesWithHidden)? else {
         return Ok(());
     };
 
