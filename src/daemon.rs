@@ -1,6 +1,6 @@
 use crate::register_action::{RegisterInformation, RegisterStatus, set_floating};
 use crate::state::{Register, State};
-use crate::target_action::{self, get_windows_by_property};
+use crate::target_action::{self, get_windows_by_property, handle_target};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -34,7 +34,6 @@ pub fn run_daemon() -> Result<()> {
     }
     let listener = UnixListener::bind(&socket_path)?;
     let mut state = State::new();
-    println!("hey bro whats up");
 
     for stream in listener.incoming() {
         match stream {
@@ -58,13 +57,6 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
     let action: Action = serde_json::from_str(&line)?;
     let mut socket = Socket::connect()?;
 
-    let (Ok(NiriResponse::FocusedWindow(focused_window)), Ok(NiriResponse::Workspaces(workspaces))) = (
-        socket.send(NiriRequest::FocusedWindow)?,
-        socket.send(NiriRequest::Workspaces)?,
-    ) else {
-        return Ok(());
-    };
-
     let response = match action {
         Action::Daemon => return Ok(()),
         Action::Create {
@@ -72,6 +64,16 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             output,
             as_float,
         } => {
+            let (
+                Ok(NiriResponse::FocusedWindow(focused_window)),
+                Ok(NiriResponse::Workspaces(workspaces)),
+            ) = (
+                socket.send(NiriRequest::FocusedWindow)?,
+                socket.send(NiriRequest::Workspaces)?,
+            )
+            else {
+                return Ok(());
+            };
             let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused)
             else {
                 return write_response(&stream, "");
@@ -138,45 +140,7 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             String::new()
         }
         Action::Target { property, spawn } => {
-            let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused)
-            else {
-                return Ok(());
-            };
-
-            let Some(stash_workspace) = workspaces
-                .iter()
-                .find(|workspace| Some("stash") == workspace.name.as_deref())
-            else {
-                println!("uh oh");
-                return Ok(());
-            };
-            let window_target_information =
-                get_windows_by_property(&mut socket, &property, stash_workspace.id);
-
-            if let Some(command) = spawn
-                && window_target_information.windows.is_empty()
-            {
-                target_action::spawn(&mut socket, command);
-                return Ok(());
-            };
-
-            if !window_target_information.windows.is_empty() {
-                // tl;dr if there are ny matching windows found in the stash workspace, we simply move
-                // everything up to the focused workspace, regardless if there are matched windows in current workspace
-                // otherwise we'll be playing switcheroo if matched windows exist in stash and focused simultaneously
-                if window_target_information.found_in_stash {
-                    println!("are you really in stash workspace though?");
-                    for window in window_target_information.windows {
-                        target_action::summon_window(&mut socket, &window, current_workspace.id)?;
-                    }
-                } else {
-                    println!("im banana man");
-                    for window in window_target_information.windows {
-                        target_action::stash_window(&mut socket, &window, stash_workspace.id);
-                    }
-                }
-            }
-            println!("ok");
+            let _ = handle_target(property, spawn);
             return Ok(());
         }
     };
