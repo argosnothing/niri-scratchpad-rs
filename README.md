@@ -193,7 +193,7 @@ environment.systemPackages = [
 
 Experimental branch:
 
-https://github.com/argosnothing/niri-scratchpad-rs/tree/hidden-workspaces
+https://github.com/argosnothing/niri-scratchpad-rs/tree/hidden-workspaces-2.0
 
 Draft Niri PR:
 
