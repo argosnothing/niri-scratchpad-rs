@@ -7,7 +7,7 @@ pub enum RegisterStatus {
 
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    Action::{FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace},
+    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
     Request, Response,
     socket::Socket,
 };
@@ -107,13 +107,6 @@ pub fn summon(
     };
     let _ = socket.send(Request::Action(focus_action));
     Ok(())
-}
-
-pub fn set_floating(socket: &mut Socket, window_id: u64) {
-    let floating_action = MoveWindowToFloating {
-        id: (Some(window_id)),
-    };
-    socket.send(Request::Action(floating_action)).ok();
 }
 
 pub fn check_status(socket: &mut Socket, register: &Register) -> RegisterStatus {

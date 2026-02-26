@@ -1,21 +1,56 @@
-# Dynamic Niri Scratchpad
-Dynamically assign windows as scratchpads against a numerical register. 
+# Dynamic Niri Scratchpad 2.0   
+No config files required!
 ![tmp XVc2CNDYYc](https://github.com/user-attachments/assets/a1cf8329-61da-423a-a362-17a6a06274d2)
 
 
-## Setup
+You will need a static workspace called `stash` declared somewhere in you niri config. This will be where all stashed scratchpads live.  
+```kdl
+  workspace "stash" { }
+```
 
-niri-scratchpad ( as of version 1.0 ) is a running process that lives in memory.  
+## Static Scratchpad Setup
+Static scratchpads show and hide windows based on their properties, such as appid or title. If multiple windows match the property they will all be selected. No running processes are required if you are only using this kind of scratchpad :)
+
+## `target`
+
+Target a window by **app id** or **title**.
+
+---
+
+### Usage
+
+```bash
+niri-scratchpad target [OPTIONS] <COMMAND>
+```
+
+---
+
+### Commands
+
+| Command | Description |
+|--------|-------------|
+| `appid` | Match a window by app id |
+| `title` | Match a window by window title |
+| `help`  | Show help for a subcommand |
+
+---
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--spawn <spawn command>` | Spawn the application if no target is found |
+| `--as-float` | Affected windows will set themselves to floating (not on spawn) |
+| `-h`, `--help` | Print help information |
+### Static Scratchpad command interface
+
+## Dynamic Scratchpad Setup  
+Dynamic scratchpads use a numerical register to assign a window to a number that you can then show and hide on a keybind. They require a running process to track what window is assigned to what register. 
+
 ```kdl
 spawn-sh-at-startup "niri-scratchpad daemon"
 ```
 
-You will need a static workspace called `stash` declared somewhere in you niri config. This will be where all stashed scratchpads live.  
-```kdl
-workspace "stash" {
-    open-on-output "DP-1" // Your output name, or just omit this property entirely
-}
-```
 
 For binding to a keybind you would do: 
 ```kdl

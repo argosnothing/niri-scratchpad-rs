@@ -2,12 +2,11 @@ use std::io::Result;
 
 use niri_ipc::{Request, Response, Window, socket::Socket};
 
-use niri_ipc::Action::{
-    FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace,
-};
+use niri_ipc::Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace};
 
 use crate::args::Property;
 use crate::target_action;
+use crate::utils::set_floating;
 
 pub struct WindowTargetInformation {
     pub windows: Vec<Window>,
@@ -88,7 +87,7 @@ pub fn summon_window(socket: &mut Socket, window: &Window, workspace_id: u64) ->
     Ok(())
 }
 
-pub fn handle_target(property: Property, spawn: Option<String>) -> Result<()> {
+pub fn handle_target(property: Property, spawn: Option<String>, as_float: bool) -> Result<()> {
     let mut socket = Socket::connect()?;
 
     let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
@@ -122,13 +121,20 @@ pub fn handle_target(property: Property, spawn: Option<String>) -> Result<()> {
         if window_target_information.found_in_stash {
             for window in window_target_information.windows {
                 target_action::summon_window(&mut socket, &window, current_workspace.id)?;
+                if as_float {
+                    set_floating(&mut socket, window.id);
+                }
             }
         } else {
             for window in window_target_information.windows {
                 target_action::stash_window(&mut socket, &window, stash_workspace.id);
+                if as_float {
+                    set_floating(&mut socket, window.id);
+                }
             }
         }
     }
+
     return Ok(());
 }
 

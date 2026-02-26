@@ -13,6 +13,11 @@ pub enum Action {
             name = "spawn command"
         )]
         spawn: Option<String>,
+        #[arg(
+            long,
+            help = "Effected windows will set themselves to floating (not on spawn)"
+        )]
+        as_float: bool,
     },
     Create {
         register_number: i32,

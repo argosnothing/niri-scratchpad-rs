@@ -1,6 +1,7 @@
-use crate::register_action::{RegisterInformation, RegisterStatus, set_floating};
+use crate::register_action::{RegisterInformation, RegisterStatus};
 use crate::state::{Register, State};
-use crate::target_action::{self, get_windows_by_property, handle_target};
+use crate::target_action::handle_target;
+use crate::utils::set_floating;
 use crate::{
     args::{Action, Output},
     register_action,
@@ -139,8 +140,12 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             sync_state(&mut socket, state);
             String::new()
         }
-        Action::Target { property, spawn } => {
-            let _ = handle_target(property, spawn);
+        Action::Target {
+            property,
+            spawn,
+            as_float,
+        } => {
+            let _ = handle_target(property, spawn, as_float);
             return Ok(());
         }
     };

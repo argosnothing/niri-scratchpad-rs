@@ -9,14 +9,20 @@ pub mod daemon;
 pub mod register_action;
 pub mod state;
 pub mod target_action;
+pub mod utils;
 
 fn main() -> Result<()> {
     if std::env::args().any(|arg| arg == "daemon") {
         return daemon::run_daemon();
     }
     let args = args::Args::parse();
-    if let args::Action::Target { property, spawn } = args.action {
-        handle_target(property, spawn)?;
+    if let args::Action::Target {
+        property,
+        spawn,
+        as_float,
+    } = args.action
+    {
+        handle_target(property, spawn, as_float)?;
         return Ok(());
     }
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
