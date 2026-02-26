@@ -15,7 +15,7 @@ workspace "stash" { }
 ## Static Scratchpads
 
 Static scratchpads show and hide windows based on properties such as **appid** or **title**.  
-If multiple windows match, all matches are selected.
+If multiple windows match, all matches are selected. If any matched window is in stash all windows will be shown on your focused workspace. 
 
 No background process is required when using only static scratchpads.
 
