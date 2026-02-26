@@ -12,12 +12,13 @@ fn main() -> Result<()> {
     if std::env::args().any(|arg| arg == "daemon") {
         return daemon::run_daemon();
     }
+    println!("you should be running bro");
 
     let args = args::Args::parse();
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
     })?;
-    let socket_path = format!("{}/niri-scratchpad.sock", runtime_dir);
+    let socket_path = format!("{}/niri-register.sock", runtime_dir);
     let mut stream = UnixStream::connect(&socket_path)
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotConnected, "Daemon not running"))?;
     let request = serde_json::to_string(&args.action)?;

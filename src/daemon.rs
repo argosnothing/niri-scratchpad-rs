@@ -34,6 +34,7 @@ pub fn run_daemon() -> Result<()> {
     }
     let listener = UnixListener::bind(&socket_path)?;
     let mut state = State::new();
+    println!("hey bro whats up");
 
     for stream in listener.incoming() {
         match stream {
@@ -141,8 +142,16 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             else {
                 return Ok(());
             };
+
+            let Some(stash_workspace) = workspaces
+                .iter()
+                .find(|workspace| Some("stash") == workspace.name.as_deref())
+            else {
+                println!("uh oh");
+                return Ok(());
+            };
             let window_target_information =
-                get_windows_by_property(&mut socket, &property, current_workspace.id);
+                get_windows_by_property(&mut socket, &property, stash_workspace.id);
 
             if let Some(command) = spawn
                 && window_target_information.windows.is_empty()
@@ -151,26 +160,23 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                 return Ok(());
             };
 
-            let Some(stash_workspace) = workspaces
-                .iter()
-                .find(|workspace| Some("stash") == workspace.name.as_deref())
-            else {
-                return Ok(());
-            };
             if !window_target_information.windows.is_empty() {
                 // tl;dr if there are ny matching windows found in the stash workspace, we simply move
                 // everything up to the focused workspace, regardless if there are matched windows in current workspace
                 // otherwise we'll be playing switcheroo if matched windows exist in stash and focused simultaneously
                 if window_target_information.found_in_stash {
+                    println!("are you really in stash workspace though?");
                     for window in window_target_information.windows {
                         target_action::summon_window(&mut socket, &window, current_workspace.id)?;
                     }
                 } else {
+                    println!("im banana man");
                     for window in window_target_information.windows {
                         target_action::stash_window(&mut socket, &window, stash_workspace.id);
                     }
                 }
             }
+            println!("ok");
             return Ok(());
         }
     };
