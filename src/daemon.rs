@@ -1,7 +1,7 @@
 use crate::register_action::{RegisterInformation, RegisterStatus};
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
-use crate::utils::set_floating;
+use crate::utils::{set_floating, set_tiling};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -64,6 +64,7 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             register_number,
             output,
             as_float,
+            animations,
         } => {
             let (
                 Ok(NiriResponse::FocusedWindow(focused_window)),
@@ -94,6 +95,7 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                         },
                         output,
                         as_float,
+                        animations,
                     );
                     result.unwrap_or_default()
                 }
@@ -144,8 +146,9 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             property,
             spawn,
             as_float,
+            animations,
         } => {
-            let _ = handle_target(property, spawn, as_float);
+            let _ = handle_target(property, spawn, as_float, animations);
             return Ok(());
         }
     };
@@ -178,6 +181,7 @@ fn handle_focused_window(
     context: FocusedWindowContext,
     output: Option<Output>,
     as_float: bool,
+    animations: bool,
 ) -> Option<String> {
     match register_check(socket, state, register_number) {
         Some(register_with_status) => match register_with_status.status {
@@ -213,6 +217,9 @@ fn handle_focused_window(
                         state,
                         Some(register_with_status.register.number),
                     );
+                    if as_float && animations {
+                        set_tiling(socket, register_window.id);
+                    }
                 } else {
                     register_action::summon(
                         socket,
@@ -220,6 +227,10 @@ fn handle_focused_window(
                         RegisterInformation::Register(&register_with_status.register),
                     )
                     .ok();
+
+                    if as_float && animations {
+                        set_floating(socket, register_window.id);
+                    }
                 }
 
                 output_value

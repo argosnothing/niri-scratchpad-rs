@@ -20,9 +20,10 @@ fn main() -> Result<()> {
         property,
         spawn,
         as_float,
+        animations,
     } = args.action
     {
-        handle_target(property, spawn, as_float)?;
+        handle_target(property, spawn, as_float, animations)?;
         return Ok(());
     }
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {

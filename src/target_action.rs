@@ -6,7 +6,7 @@ use niri_ipc::Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace};
 
 use crate::args::Property;
 use crate::target_action;
-use crate::utils::set_floating;
+use crate::utils::{set_floating, set_tiling};
 
 pub struct WindowTargetInformation {
     pub windows: Vec<Window>,
@@ -87,7 +87,12 @@ pub fn summon_window(socket: &mut Socket, window: &Window, workspace_id: u64) ->
     Ok(())
 }
 
-pub fn handle_target(property: Property, spawn: Option<String>, as_float: bool) -> Result<()> {
+pub fn handle_target(
+    property: Property,
+    spawn: Option<String>,
+    as_float: bool,
+    animations: bool,
+) -> Result<()> {
     let mut socket = Socket::connect()?;
 
     let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
@@ -128,8 +133,8 @@ pub fn handle_target(property: Property, spawn: Option<String>, as_float: bool) 
         } else {
             for window in window_target_information.windows {
                 target_action::stash_window(&mut socket, &window, stash_workspace.id);
-                if as_float {
-                    set_floating(&mut socket, window.id);
+                if animations {
+                    set_tiling(&mut socket, window.id);
                 }
             }
         }
