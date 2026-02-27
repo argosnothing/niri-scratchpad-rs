@@ -1,18 +1,18 @@
 use std::io::Result;
 
-pub enum ScratchpadStatus {
+pub enum RegisterStatus {
     WindowMapped,
     WindowDropped,
 }
 
-use crate::state::{Scratchpad, ScratchpadUpdate, State};
+use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    socket::Socket,
-    Action::{FocusWindow, MoveWindowToFloating, MoveWindowToMonitor, MoveWindowToWorkspace},
+    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
     Request, Response,
+    socket::Socket,
 };
 
-pub fn stash(socket: &mut Socket, state: &State, scratchpad_number: Option<i32>) {
+pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
     let (windows, workspaces) = match (
         socket.send(Request::Windows),
         socket.send(Request::Workspaces),
@@ -30,14 +30,15 @@ pub fn stash(socket: &mut Socket, state: &State, scratchpad_number: Option<i32>)
     else {
         return;
     };
-    for window in windows.iter().filter(|window| match scratchpad_number {
-        Some(scratch_num) => state.scratchpads.iter().any(|scratchpad| {
-            scratchpad.scratchpad_number == scratch_num && scratchpad.id == window.id
-        }),
-        None => state
-            .scratchpads
+    for window in windows.iter().filter(|window| match register_number {
+        Some(register_num) => state
+            .registers
             .iter()
-            .any(|scratchpad| scratchpad.id == window.id),
+            .any(|register| register.number == register_num && register.window_id == window.id),
+        None => state
+            .registers
+            .iter()
+            .any(|register| register.window_id == window.id),
     }) {
         let move_action = MoveWindowToWorkspace {
             window_id: Some(window.id),
@@ -48,15 +49,15 @@ pub fn stash(socket: &mut Socket, state: &State, scratchpad_number: Option<i32>)
     }
 }
 
-pub enum ScratchpadInformation<'a> {
+pub enum RegisterInformation<'a> {
     Id(i32),
-    Scratchpad(&'a Scratchpad),
+    Register(&'a Register),
 }
 
 pub fn summon(
     socket: &mut Socket,
     state: &State,
-    scratchpad_info: ScratchpadInformation,
+    register_info: RegisterInformation,
 ) -> Result<()> {
     let (focused_output, focused_window, workspaces) = match (
         socket.send(Request::FocusedOutput)?,
@@ -70,25 +71,25 @@ pub fn summon(
         ) => (focused_output, focused_window, workspaces),
         _ => return Ok(()),
     };
-    let scratchpad: &Scratchpad;
-    match scratchpad_info {
-        ScratchpadInformation::Id(id) => {
-            if let Some(scratch) = state.get_scratchpad_ref_by_number(id) {
-                scratchpad = scratch;
+    let found_register: &Register;
+    match register_info {
+        RegisterInformation::Id(id) => {
+            if let Some(register) = state.get_register_ref_by_number(id) {
+                found_register = register;
             } else {
                 return Ok(());
             }
         }
-        ScratchpadInformation::Scratchpad(scratch) => scratchpad = scratch,
+        RegisterInformation::Register(register) => found_register = register,
     };
 
     if let Some(focused_window) = focused_window {
-        if focused_window.id == scratchpad.id {
+        if focused_window.id == found_register.window_id {
             return Ok(());
         }
     };
     let move_action = MoveWindowToMonitor {
-        id: Some(scratchpad.id),
+        id: Some(found_register.window_id),
         output: focused_output.name,
     };
     let _ = socket.send(Request::Action(move_action));
@@ -96,63 +97,57 @@ pub fn summon(
         return Ok(());
     };
     let move_action = MoveWindowToWorkspace {
-        window_id: Some(scratchpad.id),
+        window_id: Some(found_register.window_id),
         reference: niri_ipc::WorkspaceReferenceArg::Id(focused_workspace.id),
         focus: (true),
     };
     let _ = socket.send(Request::Action(move_action));
     let focus_action = FocusWindow {
-        id: (scratchpad.id),
+        id: (found_register.window_id),
     };
     let _ = socket.send(Request::Action(focus_action));
     Ok(())
 }
 
-pub fn set_floating(socket: &mut Socket, window_id: u64) {
-    let floating_action = MoveWindowToFloating {
-        id: (Some(window_id)),
-    };
-    socket.send(Request::Action(floating_action)).ok();
-}
-
-pub fn check_status(socket: &mut Socket, scratchpad: &Scratchpad) -> ScratchpadStatus {
+pub fn check_status(socket: &mut Socket, register: &Register) -> RegisterStatus {
     let Ok(Ok(Response::Windows(windows))) = socket.send(Request::Windows) else {
-        return ScratchpadStatus::WindowDropped;
+        return RegisterStatus::WindowDropped;
     };
-    match windows.iter().find(|window| scratchpad.id == window.id) {
-        Some(_) => ScratchpadStatus::WindowMapped,
-        None => ScratchpadStatus::WindowDropped,
+    match windows
+        .iter()
+        .find(|window| register.window_id == window.id)
+    {
+        Some(_) => RegisterStatus::WindowMapped,
+        None => RegisterStatus::WindowDropped,
     }
 }
 
-pub fn get_all_scratchpad_status(
+pub fn get_all_register_status(
     socket: &mut Socket,
-    scratchpads: Vec<&Scratchpad>,
-) -> Result<Vec<ScratchpadUpdate>> {
-    let mut scratchpad_state: Vec<ScratchpadUpdate> = Vec::new();
+    registers: Vec<&Register>,
+) -> Result<Vec<RegisterUpdate>> {
+    let mut register_state: Vec<RegisterUpdate> = Vec::new();
     let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
-        return Ok(scratchpad_state); //return an empty map
+        return Ok(register_state); //return an empty map
     };
-    if let Some(orphaned_scratchpad) = scratchpads
+    if let Some(orphaned_register) = registers
         .iter()
-        .find(|scratchpad| !windows.iter().any(|window| window.id == scratchpad.id))
+        .find(|register| !windows.iter().any(|window| window.id == register.window_id))
     {
-        scratchpad_state.push(ScratchpadUpdate::Delete(
-            orphaned_scratchpad.scratchpad_number,
-        ))
+        register_state.push(RegisterUpdate::Delete(orphaned_register.number))
     };
     for window in windows {
-        if let Some(scratchpad) = scratchpads
+        if let Some(register) = registers
             .iter()
-            .find(|scratchpad| scratchpad.id == window.id)
+            .find(|register| register.window_id == window.id)
         {
-            scratchpad_state.push(ScratchpadUpdate::Update(Scratchpad {
-                id: window.id,
+            register_state.push(RegisterUpdate::Update(Register {
+                window_id: window.id,
                 title: window.title.clone(),
                 app_id: window.app_id.clone(),
-                ..**scratchpad
+                ..**register
             }));
         };
     }
-    Ok(scratchpad_state)
+    Ok(register_state)
 }

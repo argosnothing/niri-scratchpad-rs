@@ -1,110 +1,104 @@
+/// Register-based scratchpad utilize state to track the currently assigned window to that scratchpad register.
 use serde::{Deserialize, Serialize};
 use std::{hash::Hash, io::Result};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
-pub struct Scratchpad {
+pub struct Register {
     pub title: Option<String>,
     pub app_id: Option<String>,
-    pub id: u64,
-    pub scratchpad_number: i32,
+    pub window_id: u64,
+    pub number: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct State {
-    pub scratchpads: Vec<Scratchpad>,
+    pub registers: Vec<Register>,
 }
 
 pub enum AddResult {
     Added,
-    AlreadyExists(Scratchpad),
+    AlreadyExists(Register),
 }
 
-pub enum ScratchpadUpdate {
-    Add(Scratchpad),
-    Update(Scratchpad),
+pub enum RegisterUpdate {
+    Add(Register),
+    Update(Register),
     Delete(i32),
 }
 
 impl State {
     pub fn new() -> Self {
-        State {
-            scratchpads: vec![],
-        }
+        State { registers: vec![] }
     }
 
-    pub fn add_scratchpad(
+    pub fn add_register(
         &mut self,
-        scratchpad_number: i32,
+        register_number: i32,
         id: u64,
         title: Option<String>,
         app_id: Option<String>,
     ) -> Result<()> {
-        self.scratchpads.push(Scratchpad {
-            id,
-            scratchpad_number,
+        self.registers.push(Register {
+            window_id: id,
+            number: register_number,
             app_id,
             title,
         });
         Ok(())
     }
 
-    pub fn delete_scratchpad(&mut self, scratchpad_number: i32) {
-        self.scratchpads
-            .retain(|scratchpad| scratchpad.scratchpad_number != scratchpad_number);
+    pub fn delete_register(&mut self, register_number: i32) {
+        self.registers
+            .retain(|register| register.number != register_number);
     }
 
-    pub fn get_scratchpad_by_number(&self, scratchpad_number: i32) -> Option<Scratchpad> {
-        self.scratchpads
+    pub fn get_register_by_number(&self, register_number: i32) -> Option<Register> {
+        self.registers
             .iter()
-            .find(|scratchpad| scratchpad.scratchpad_number == scratchpad_number)
+            .find(|register| register.number == register_number)
             .cloned()
     }
 
-    pub fn get_scratchpad_ref_by_number(&self, scratchpad_number: i32) -> Option<&Scratchpad> {
-        self.scratchpads
+    pub fn get_register_ref_by_number(&self, register_number: i32) -> Option<&Register> {
+        self.registers
             .iter()
-            .find(|scratchpad| scratchpad.scratchpad_number == scratchpad_number)
+            .find(|register| register.number == register_number)
     }
 
-    pub fn get_tracked_scratchpads(&self) -> Vec<&Scratchpad> {
-        self.scratchpads.iter().collect()
+    pub fn get_tracked_registers(&self) -> Vec<&Register> {
+        self.registers.iter().collect()
     }
 
-    pub fn syncronize_scratchpads(
-        &mut self,
-        scratchpad_updates: Vec<ScratchpadUpdate>,
-    ) -> Result<()> {
-        for scratchpad_update in scratchpad_updates {
-            match scratchpad_update {
-                ScratchpadUpdate::Add(scratchpad) => self.scratchpads.push(scratchpad),
-                ScratchpadUpdate::Update(scratchpad) => {
-                    if let Some(stored_scratchpad) =
-                        self.scratchpads.iter_mut().find(|found_scratchpad| {
-                            found_scratchpad.scratchpad_number == scratchpad.scratchpad_number
-                        })
+    pub fn syncronize_registers(&mut self, register_updates: Vec<RegisterUpdate>) -> Result<()> {
+        for register_update in register_updates {
+            match register_update {
+                RegisterUpdate::Add(register) => self.registers.push(register),
+                RegisterUpdate::Update(register) => {
+                    if let Some(stored_register) = self
+                        .registers
+                        .iter_mut()
+                        .find(|found_register| found_register.number == register.number)
                     {
-                        *stored_scratchpad = scratchpad;
+                        *stored_register = register;
                     }
                 }
-                ScratchpadUpdate::Delete(scratchpad_number) => {
-                    self.scratchpads.retain(|stored_scratchpad| {
-                        stored_scratchpad.scratchpad_number != scratchpad_number
-                    })
-                }
+                RegisterUpdate::Delete(register_number) => self
+                    .registers
+                    .retain(|stored_register| stored_register.number != register_number),
             };
         }
         Ok(())
     }
 
-    pub fn update_scratchpad(&mut self, scratchpad_update: Scratchpad) {
-        let Some(scratchpad) = self
-            .scratchpads
+    pub fn update_register(&mut self, register_update: Register) {
+        let Some(register) = self
+            .registers
             .iter_mut()
-            .find(|scratchpad| scratchpad.scratchpad_number == scratchpad_update.scratchpad_number)
+            .find(|register| register.number == register_update.number)
         else {
             return ();
         };
-        *scratchpad = scratchpad_update;
+        *register = register_update;
     }
 }
 
