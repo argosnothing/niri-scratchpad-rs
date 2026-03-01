@@ -11,6 +11,27 @@ pub mod state;
 pub mod target_action;
 pub mod utils;
 
+fn connect_or_start_daemon(socket_path: &str) -> Result<UnixStream> {
+    if let Ok(stream) = UnixStream::connect(socket_path) {
+        return Ok(stream);
+    }
+
+    let exe = std::env::current_exe()?;
+    std::process::Command::new(exe).arg("daemon").spawn()?;
+
+    for _ in 0..40 {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        if let Ok(stream) = UnixStream::connect(socket_path) {
+            return Ok(stream);
+        }
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotConnected,
+        "Failed to start daemon",
+    ))
+}
+
 fn main() -> Result<()> {
     if std::env::args().any(|arg| arg == "daemon") {
         return daemon::run_daemon();
@@ -30,8 +51,7 @@ fn main() -> Result<()> {
         std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
     })?;
     let socket_path = format!("{}/niri-register.sock", runtime_dir);
-    let mut stream = UnixStream::connect(&socket_path)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotConnected, "Daemon not running"))?;
+    let mut stream = connect_or_start_daemon(&socket_path)?;
     let request = serde_json::to_string(&args.action)?;
     writeln!(stream, "{}", request)?;
 
