@@ -132,10 +132,10 @@ pub fn handle_target(
             }
         } else {
             for window in window_target_information.windows {
-                target_action::stash_window(&mut socket, &window, stash_workspace.id);
-                if animations {
+                if animations && window.is_floating {
                     set_tiling(&mut socket, window.id);
                 }
+                target_action::stash_window(&mut socket, &window, stash_workspace.id);
             }
         }
     }

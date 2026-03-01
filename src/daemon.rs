@@ -212,14 +212,14 @@ fn handle_focused_window(
                 };
 
                 if workspace_id == context.current_workspace_id {
+                    if animations && register_window.is_floating {
+                        set_tiling(socket, register_window.id);
+                    }
                     register_action::stash(
                         socket,
                         state,
                         Some(register_with_status.register.number),
                     );
-                    if as_float && animations {
-                        set_tiling(socket, register_window.id);
-                    }
                 } else {
                     register_action::summon(
                         socket,
