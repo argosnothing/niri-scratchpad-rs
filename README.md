@@ -54,15 +54,7 @@ One note, is while `--as-float` is technically available with the spawn command,
 ## Dynamic Scratchpads
 
 Dynamic scratchpads assign a window to a numbered register.  
-You can toggle the window with a keybind using that register.
-
-This mode requires the daemon to track register state.
-
-Start the daemon on login:
-
-```kdl
-spawn-sh-at-startup "niri-scratchpad daemon"
-```
+You can toggle the window with a keybind using that register. Associations between registers and their windows do not persist after session end. 
 
 ### Example Niri bindings
 
