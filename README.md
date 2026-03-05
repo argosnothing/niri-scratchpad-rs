@@ -15,7 +15,7 @@ workspace "stash" { }
 ## Static Scratchpads
 
 Static scratchpads show and hide windows based on properties such as **appid** or **title**.  
-If multiple windows match, all matches are selected.
+If multiple windows match, all matches are selected. If any matched window is in stash all windows will be shown on your focused workspace. 
 
 No background process is required when using only static scratchpads.
 
@@ -54,15 +54,7 @@ One note, is while `--as-float` is technically available with the spawn command,
 ## Dynamic Scratchpads
 
 Dynamic scratchpads assign a window to a numbered register.  
-You can toggle the window with a keybind using that register.
-
-This mode requires the daemon to track register state.
-
-Start the daemon on login:
-
-```kdl
-spawn-sh-at-startup "niri-scratchpad daemon"
-```
+You can toggle the window with a keybind using that register. Associations between registers and their windows do not persist after session end. 
 
 ### Example Niri bindings
 

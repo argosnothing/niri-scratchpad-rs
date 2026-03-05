@@ -18,6 +18,8 @@ pub enum Action {
             help = "Effected windows will set themselves to floating (not on spawn)"
         )]
         as_float: bool,
+        #[arg(long, help = "Effected windows will animate if floating")]
+        animations: bool,
     },
     Create {
         register_number: i32,
@@ -28,6 +30,8 @@ pub enum Action {
             help = "Initial register create will toggle floating on the window"
         )]
         as_float: bool,
+        #[arg(long, help = "Effected windows will animate if floating")]
+        animations: bool,
     },
     Delete {
         register_number: i32,
