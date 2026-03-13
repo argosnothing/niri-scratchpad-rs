@@ -50,7 +50,11 @@ fn main() -> Result<()> {
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
     })?;
-    let socket_path = format!("{}/niri-register.sock", runtime_dir);
+    let socket_path = format!(
+        "{}/niri-register{}.sock",
+        runtime_dir,
+        if cfg!(debug_assertions) { "-debug" } else { "" }
+    );
     let mut stream = connect_or_start_daemon(&socket_path)?;
     let request = serde_json::to_string(&args.action)?;
     writeln!(stream, "{}", request)?;
