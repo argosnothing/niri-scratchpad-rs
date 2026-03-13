@@ -1,7 +1,7 @@
 use crate::register_action::{RegisterInformation, RegisterStatus};
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
-use crate::utils::{set_floating, set_tiling};
+use crate::utils::{get_socket_path, set_floating, set_tiling};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -10,10 +10,8 @@ use niri_ipc::socket::Socket;
 use niri_ipc::{Request as NiriRequest, Response as NiriResponse};
 use std::os::unix::net::UnixStream;
 use std::{
-    env::var,
     io::{BufRead, BufReader, Result, Write},
     os::unix::net::UnixListener,
-    path::PathBuf,
 };
 
 struct RegisterWithStatus {
@@ -29,6 +27,8 @@ struct FocusedWindowContext {
 }
 
 pub fn run_daemon() -> Result<()> {
+    #[cfg(debug_assertions)]
+    let _ = std::fs::write("/proc/self/comm", "niri-reg-debug");
     let socket_path = get_socket_path()?;
     if socket_path.exists() {
         std::fs::remove_file(&socket_path)?;
@@ -291,11 +291,4 @@ fn sync_state(socket: &mut Socket, state: &mut State) {
         return;
     };
     state.syncronize_registers(register_statuses).ok();
-}
-
-fn get_socket_path() -> Result<PathBuf> {
-    let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
-    })?;
-    Ok(PathBuf::from(runtime_dir).join("niri-register.sock"))
 }
