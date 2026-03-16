@@ -6,6 +6,7 @@ use crate::target_action::handle_target;
 use crate::utils::get_socket_path;
 pub mod args;
 pub mod daemon;
+pub mod delete_worker;
 pub mod register_action;
 pub mod state;
 pub mod target_action;
