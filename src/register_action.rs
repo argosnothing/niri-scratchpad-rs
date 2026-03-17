@@ -2,15 +2,11 @@ use std::io::Result;
 
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    // This Addition of feature is experminetal as it is in the niri 25.01.
-    // So things outside from that this current code will be backward incompatible.
     Action::{
         FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace, SetWorkspaceName,
         UnsetWorkspaceName,
     },
-    Request,
-    Response,
-    WorkspaceReferenceArg,
+    Request, Response, WorkspaceReferenceArg,
     socket::Socket,
 };
 
@@ -27,10 +23,9 @@ pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
         }
     };
 
-    //  We can use set-workspace-name and unset-workspace-name
     let stash_workspace_id = match workspaces
         .iter()
-        .find(|workspace| workspace.name.as_deref() == Some("stash"))
+        .find(|workspace| workspace.name.as_deref() == Some("stash2"))
     {
         Some(stash) => stash.id,
         None => {
@@ -39,7 +34,6 @@ pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
                 _ => None,
             };
 
-            // Lets pick to the last *unnamed* workspace.
             let last_workspace = if let Some(ref output_name) = target {
                 workspaces
                     .iter()
@@ -58,7 +52,7 @@ pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
             };
 
             let _ = socket.send(Request::Action(SetWorkspaceName {
-                name: "stash".to_string(),
+                name: "stash2".to_string(),
                 workspace: Some(WorkspaceReferenceArg::Id(last.id)),
             }));
 
@@ -102,7 +96,7 @@ pub fn clean_status(socket: &mut Socket) {
 
     let Some(stash) = workspaces
         .iter()
-        .find(|w| w.name.as_deref() == Some("stash"))
+        .find(|w| w.name.as_deref() == Some(crate::STASH_NAME))
     else {
         return;
     };
@@ -178,7 +172,7 @@ pub fn get_all_register_status(
 ) -> Result<Vec<RegisterUpdate>> {
     let mut register_state: Vec<RegisterUpdate> = Vec::new();
     let Ok(Response::Windows(windows)) = socket.send(Request::Windows)? else {
-        return Ok(register_state); //return an empty map
+        return Ok(register_state);
     };
     if let Some(orphaned_register) = registers
         .iter()

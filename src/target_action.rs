@@ -66,7 +66,7 @@ fn get_or_create_stash_workspace(socket: &mut Socket) -> Option<u64> {
 
     if let Some(stash) = workspaces
         .iter()
-        .find(|w| w.name.as_deref() == Some("stash"))
+        .find(|w| w.name.as_deref() == Some("stash2"))
     {
         return Some(stash.id);
     }
@@ -89,7 +89,7 @@ fn get_or_create_stash_workspace(socket: &mut Socket) -> Option<u64> {
     }?;
 
     let _ = socket.send(Request::Action(niri_ipc::Action::SetWorkspaceName {
-        name: "stash".to_string(),
+        name: crate::STASH_NAME.to_string(),
         workspace: Some(WorkspaceReferenceArg::Id(last.id)),
     }));
 
@@ -151,7 +151,7 @@ pub fn handle_target(
     // only stash_window() creates it on demand when we actually need to stash.
     let stash_workspace_id = workspaces
         .iter()
-        .find(|w| w.name.as_deref() == Some("stash"))
+        .find(|w| w.name.as_deref() == Some(crate::STASH_NAME))
         .map(|w| w.id)
         .unwrap_or(0);
 

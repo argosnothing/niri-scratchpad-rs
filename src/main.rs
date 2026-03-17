@@ -2,6 +2,11 @@ use clap::Parser;
 use std::io::{BufRead, BufReader, Result, Write};
 use std::os::unix::net::UnixStream;
 
+#[cfg(debug_assertions)]
+pub const STASH_NAME: &str = "stash-debug";
+#[cfg(not(debug_assertions))]
+pub const STASH_NAME: &str = "stash";
+
 use crate::target_action::handle_target;
 use crate::utils::get_socket_path;
 pub mod args;
