@@ -1,8 +1,8 @@
-use crate::delete_worker::{self, DeleteWorkerThread};
 use crate::register_action::RegisterInformation;
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
 use crate::utils::{get_socket_path, set_floating, set_tiling};
+use crate::worker::{self, WorkerThread};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -38,7 +38,7 @@ pub fn run_daemon() -> Result<()> {
     }
     let listener = UnixListener::bind(&socket_path)?;
     let mut state = Arc::new(Mutex::new(State::new()));
-    let mut worker: Option<DeleteWorkerThread> = None;
+    let mut worker: Option<WorkerThread> = None;
     let shutdown = Arc::new(AtomicBool::new(false));
 
     for stream in listener.incoming() {
@@ -61,7 +61,7 @@ pub fn run_daemon() -> Result<()> {
 fn handle_client(
     stream: UnixStream,
     state: &mut Arc<Mutex<State>>,
-    worker: &mut Option<DeleteWorkerThread>,
+    worker: &mut Option<WorkerThread>,
     shutdown: &Arc<AtomicBool>,
 ) -> Result<ActionResponse> {
     let mut reader = BufReader::new(&stream);
@@ -119,7 +119,7 @@ fn handle_client(
                 }
             };
             if worker.is_none() {
-                *worker = Some(delete_worker::spawn(state.clone(), shutdown.clone()));
+                *worker = Some(worker::spawn(state.clone(), shutdown.clone()));
             }
 
             create_response

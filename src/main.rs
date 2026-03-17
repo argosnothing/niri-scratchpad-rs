@@ -6,11 +6,11 @@ use crate::target_action::handle_target;
 use crate::utils::get_socket_path;
 pub mod args;
 pub mod daemon;
-pub mod delete_worker;
 pub mod register_action;
 pub mod state;
 pub mod target_action;
 pub mod utils;
+pub mod worker;
 
 fn connect_or_start_daemon(socket_path: &str) -> Result<UnixStream> {
     if let Ok(stream) = UnixStream::connect(socket_path) {

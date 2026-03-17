@@ -12,27 +12,27 @@ use niri_ipc::{Event, Response, socket::Socket};
 
 use crate::{state::State, utils::get_socket_path};
 
-pub struct DeleteWorkerThread {
+pub struct WorkerThread {
     pub handle: thread::JoinHandle<()>,
     pub stop: Arc<AtomicBool>,
 }
 
-impl DeleteWorkerThread {
+impl WorkerThread {
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
     }
 }
 
-pub fn spawn(state: Arc<Mutex<State>>, shutdown: Arc<AtomicBool>) -> DeleteWorkerThread {
+pub fn spawn(state: Arc<Mutex<State>>, shutdown: Arc<AtomicBool>) -> WorkerThread {
     let stop = Arc::new(AtomicBool::new(false));
     let stop_clone = stop.clone();
     let handle = thread::spawn(move || {
-        watch_for_deletion(state, stop_clone, shutdown).unwrap();
+        listen_to_events(state, stop_clone, shutdown).unwrap();
     });
-    DeleteWorkerThread { handle, stop }
+    WorkerThread { handle, stop }
 }
 
-pub fn watch_for_deletion(
+pub fn listen_to_events(
     state: Arc<Mutex<State>>,
     stop: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
