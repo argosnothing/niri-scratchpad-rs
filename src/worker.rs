@@ -32,6 +32,7 @@ pub fn spawn(state: Arc<Mutex<State>>, shutdown: Arc<AtomicBool>) -> WorkerThrea
     WorkerThread { handle, stop }
 }
 
+/// Listen to events, allowing back and forth communication that can also signal to the parent process to shut down.
 pub fn listen_to_events(
     state: Arc<Mutex<State>>,
     stop: Arc<AtomicBool>,
