@@ -2,62 +2,18 @@ use std::io::Result;
 
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    Action::{
-        FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace, SetWorkspaceName,
-        UnsetWorkspaceName,
-    },
+    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace, UnsetWorkspaceName},
     Request, Response, WorkspaceReferenceArg,
     socket::Socket,
 };
 
 pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
-    let (windows, workspaces) = match (
-        socket.send(Request::Windows),
-        socket.send(Request::Workspaces),
-    ) {
-        (Ok(Ok(Response::Windows(windows))), Ok(Ok(Response::Workspaces(workspaces)))) => {
-            (windows, workspaces)
-        }
-        _ => {
-            return;
-        }
+    let Ok(Ok(Response::Windows(windows))) = socket.send(Request::Windows) else {
+        return;
     };
 
-    let stash_workspace_id = match workspaces
-        .iter()
-        .find(|workspace| workspace.name.as_deref() == Some("stash2"))
-    {
-        Some(stash) => stash.id,
-        None => {
-            let target = match socket.send(Request::FocusedOutput) {
-                Ok(Ok(Response::FocusedOutput(Some(output)))) => Some(output.name),
-                _ => None,
-            };
-
-            let last_workspace = if let Some(ref output_name) = target {
-                workspaces
-                    .iter()
-                    .filter(|w| {
-                        w.output.as_deref() == Some(output_name.as_str()) && w.name.is_none()
-                    })
-                    .max_by_key(|w| w.idx)
-            } else {
-                workspaces
-                    .iter()
-                    .filter(|w| w.name.is_none())
-                    .max_by_key(|w| w.idx)
-            };
-            let Some(last) = last_workspace else {
-                return;
-            };
-
-            let _ = socket.send(Request::Action(SetWorkspaceName {
-                name: "stash2".to_string(),
-                workspace: Some(WorkspaceReferenceArg::Id(last.id)),
-            }));
-
-            last.id
-        }
+    let Some(stash_workspace_id) = crate::utils::get_or_create_stash_workspace(socket) else {
+        return;
     };
     for window in windows.iter().filter(|window| match register_number {
         Some(register_num) => state

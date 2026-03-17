@@ -59,45 +59,8 @@ pub fn match_window_by_property(window: &Window, property: &Property) -> bool {
     }
 }
 
-fn get_or_create_stash_workspace(socket: &mut Socket) -> Option<u64> {
-    let Ok(Ok(Response::Workspaces(workspaces))) = socket.send(Request::Workspaces) else {
-        return None;
-    };
-
-    if let Some(stash) = workspaces
-        .iter()
-        .find(|w| w.name.as_deref() == Some("stash2"))
-    {
-        return Some(stash.id);
-    }
-
-    let target_output = match socket.send(Request::FocusedOutput) {
-        Ok(Ok(Response::FocusedOutput(Some(output)))) => Some(output.name),
-        _ => None,
-    };
-
-    let last = if let Some(ref output_name) = target_output {
-        workspaces
-            .iter()
-            .filter(|w| w.output.as_deref() == Some(output_name.as_str()) && w.name.is_none())
-            .max_by_key(|w| w.idx)
-    } else {
-        workspaces
-            .iter()
-            .filter(|w| w.name.is_none())
-            .max_by_key(|w| w.idx)
-    }?;
-
-    let _ = socket.send(Request::Action(niri_ipc::Action::SetWorkspaceName {
-        name: crate::STASH_NAME.to_string(),
-        workspace: Some(WorkspaceReferenceArg::Id(last.id)),
-    }));
-
-    Some(last.id)
-}
-
 pub fn stash_window(socket: &mut Socket, window: &Window) {
-    let Some(stash_id) = get_or_create_stash_workspace(socket) else {
+    let Some(stash_id) = crate::utils::get_or_create_stash_workspace(socket) else {
         return;
     };
     let _ = socket.send(Request::Action(niri_ipc::Action::MoveWindowToWorkspace {
