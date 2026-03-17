@@ -57,6 +57,32 @@ pub fn get_or_create_stash_workspace(socket: &mut Socket) -> Option<u64> {
     Some(last.id)
 }
 
+pub fn cleanup_stash_workspace(socket: &mut Socket) {
+    let (windows, workspaces) = match (
+        socket.send(Request::Windows),
+        socket.send(Request::Workspaces),
+    ) {
+        (Ok(Ok(Response::Windows(windows))), Ok(Ok(Response::Workspaces(workspaces)))) => {
+            (windows, workspaces)
+        }
+        _ => return,
+    };
+
+    let Some(stash) = workspaces
+        .iter()
+        .find(|w| w.name.as_deref() == Some(crate::STASH_NAME))
+    else {
+        return;
+    };
+
+    let stash_contains_windows = windows.iter().any(|w| w.workspace_id == Some(stash.id));
+    if !stash_contains_windows {
+        let _ = socket.send(Request::Action(niri_ipc::Action::UnsetWorkspaceName {
+            reference: Some(WorkspaceReferenceArg::Id(stash.id)),
+        }));
+    }
+}
+
 pub fn get_socket_path() -> Result<PathBuf> {
     let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")

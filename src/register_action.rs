@@ -2,8 +2,8 @@ use std::io::Result;
 
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
-    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace, UnsetWorkspaceName},
-    Request, Response, WorkspaceReferenceArg,
+    Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
+    Request, Response,
     socket::Socket,
 };
 
@@ -37,32 +37,6 @@ pub fn stash(socket: &mut Socket, state: &State, register_number: Option<i32>) {
 pub enum RegisterInformation<'a> {
     Id(i32),
     Register(&'a Register),
-}
-
-pub fn clean_status(socket: &mut Socket) {
-    let (windows, workspaces) = match (
-        socket.send(Request::Windows),
-        socket.send(Request::Workspaces),
-    ) {
-        (Ok(Ok(Response::Windows(windows))), Ok(Ok(Response::Workspaces(workspaces)))) => {
-            (windows, workspaces)
-        }
-        _ => return,
-    };
-
-    let Some(stash) = workspaces
-        .iter()
-        .find(|w| w.name.as_deref() == Some(crate::STASH_NAME))
-    else {
-        return;
-    };
-
-    let stash_contains_windows = windows.iter().any(|w| w.workspace_id == Some(stash.id));
-    if !stash_contains_windows {
-        let _ = socket.send(Request::Action(UnsetWorkspaceName {
-            reference: Some(WorkspaceReferenceArg::Id(stash.id)),
-        }));
-    }
 }
 
 pub fn summon(
@@ -118,7 +92,7 @@ pub fn summon(
     };
     let _ = socket.send(Request::Action(focus_action));
 
-    clean_status(socket);
+    crate::utils::cleanup_stash_workspace(socket);
     Ok(())
 }
 

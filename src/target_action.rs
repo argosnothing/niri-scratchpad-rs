@@ -5,8 +5,8 @@ use niri_ipc::{Request, Response, Window, WorkspaceReferenceArg, socket::Socket}
 use niri_ipc::Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace};
 
 use crate::args::Property;
-use crate::register_action::clean_status;
 use crate::target_action;
+use crate::utils::cleanup_stash_workspace;
 use crate::utils::{set_floating, set_tiling};
 
 pub struct WindowTargetInformation {
@@ -89,7 +89,7 @@ pub fn summon_window(socket: &mut Socket, window: &Window, workspace_id: u64) ->
     let focus_action = FocusWindow { id: window.id };
     let _ = socket.send(Request::Action(focus_action));
 
-    clean_status(socket);
+    cleanup_stash_workspace(socket);
     Ok(())
 }
 
