@@ -20,6 +20,8 @@ pub enum Action {
         as_float: bool,
         #[arg(long, help = "Effected windows will animate if floating")]
         animations: bool,
+        #[arg(long, help = "Scratchpad follows across workspace changes")]
+        follow: bool,
     },
     Create {
         register_number: i32,
@@ -32,6 +34,8 @@ pub enum Action {
         as_float: bool,
         #[arg(long, help = "Effected windows will animate if floating")]
         animations: bool,
+        #[arg(long, help = "Scratchpad follows across workspace changes")]
+        follow: bool,
     },
     Delete {
         register_number: i32,
@@ -46,7 +50,7 @@ pub enum Action {
     Daemon,
 }
 
-#[derive(Subcommand, Clone, Debug, Serialize, Deserialize)]
+#[derive(Subcommand, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Property {
     #[command(name = "appid")]
     AppId {

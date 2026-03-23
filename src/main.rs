@@ -43,9 +43,10 @@ fn main() -> Result<()> {
         spawn,
         as_float,
         animations,
+        follow: false,
     } = args.action
     {
-        handle_target(property, spawn, as_float, animations)?;
+        handle_target(property, spawn, as_float, animations, false, None)?;
         return Ok(());
     }
 

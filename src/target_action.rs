@@ -7,6 +7,7 @@ use niri_ipc::Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace};
 use crate::args::Property;
 use crate::target_action;
 use crate::utils::{set_floating, set_tiling};
+use crate::worker::{Scratchpad, Worker};
 
 pub struct WindowTargetInformation {
     pub windows: Vec<Window>,
@@ -92,6 +93,8 @@ pub fn handle_target(
     spawn: Option<String>,
     as_float: bool,
     animations: bool,
+    follow: bool,
+    worker: Option<&Worker>,
 ) -> Result<()> {
     let mut socket = Socket::connect()?;
 
@@ -130,12 +133,22 @@ pub fn handle_target(
                     set_floating(&mut socket, window.id);
                 }
             }
+            if follow {
+                if let Some(worker) = worker {
+                    worker.add_scratchpad(Scratchpad::Target(property.clone()));
+                }
+            }
         } else {
             for window in window_target_information.windows {
                 if animations && window.is_floating {
                     set_tiling(&mut socket, window.id);
                 }
                 target_action::stash_window(&mut socket, &window, stash_workspace.id);
+            }
+            if follow {
+                if let Some(worker) = worker {
+                    worker.remove_scratchpad(Scratchpad::Target(property.clone()));
+                }
             }
         }
     }

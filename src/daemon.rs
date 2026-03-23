@@ -2,7 +2,7 @@ use crate::register_action::RegisterInformation;
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
 use crate::utils::{get_socket_path, set_floating, set_tiling};
-use crate::worker::{self, WorkerThread};
+use crate::worker::{Scratchpad, Worker};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -37,16 +37,16 @@ pub fn run_daemon() -> Result<()> {
         std::fs::remove_file(&socket_path)?;
     }
     let listener = UnixListener::bind(&socket_path)?;
-    let mut state = Arc::new(Mutex::new(State::new()));
-    let mut worker: Option<WorkerThread> = None;
+    let state = Arc::new(Mutex::new(State::new()));
     let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = Worker::new(state.clone(), shutdown.clone());
 
     for stream in listener.incoming() {
         if shutdown.load(Ordering::Relaxed) {
             break;
         }
         match stream {
-            Ok(stream) => match handle_client(stream, &mut state, &mut worker, &shutdown) {
+            Ok(stream) => match handle_client(stream, &state, &worker) {
                 Ok(ActionResponse::End) => break,
                 Err(e) => eprintln!("Error handling client: {}", e),
                 _ => {}
@@ -60,9 +60,8 @@ pub fn run_daemon() -> Result<()> {
 
 fn handle_client(
     stream: UnixStream,
-    state: &mut Arc<Mutex<State>>,
-    worker: &mut Option<WorkerThread>,
-    shutdown: &Arc<AtomicBool>,
+    state: &Arc<Mutex<State>>,
+    worker: &Worker,
 ) -> Result<ActionResponse> {
     let mut reader = BufReader::new(&stream);
     let mut line = String::new();
@@ -78,6 +77,7 @@ fn handle_client(
             output,
             as_float,
             animations,
+            follow,
         } => {
             let (
                 Ok(NiriResponse::FocusedWindow(focused_window)),
@@ -95,6 +95,7 @@ fn handle_client(
             };
 
             let mut state_lock = state.lock().unwrap();
+            let before_count = state_lock.registers.len();
             let create_response = match focused_window {
                 Some(window) => {
                     let result = handle_focused_window(
@@ -110,16 +111,25 @@ fn handle_client(
                         output,
                         as_float,
                         animations,
+                        follow,
+                        worker,
                     );
                     result.unwrap_or_default()
                 }
                 None => {
                     handle_no_focused_window(&mut socket, &mut state_lock, register_number);
+                    if follow {
+                        if let Some(register) = state_lock.get_register_ref_by_number(register_number) {
+                            worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                        }
+                    }
                     String::new()
                 }
             };
-            if worker.is_none() {
-                *worker = Some(worker::spawn(state.clone(), shutdown.clone()));
+            let after_count = state_lock.registers.len();
+            drop(state_lock);
+            if after_count > before_count {
+                worker.increment_delete_watchers();
             }
 
             create_response
@@ -141,10 +151,11 @@ fn handle_client(
                         return Ok(ActionResponse::Continue);
                     };
                     state_lock.delete_register(register_number);
-                    if state_lock.registers.is_empty() {
-                        if let Some(worker) = worker.take() {
-                            worker.stop();
-                        }
+                    let is_empty = state_lock.registers.is_empty();
+                    drop(state_lock);
+                    worker.decrement_delete_watchers();
+                    if is_empty {
+                        worker.stop_thread();
                         return Ok(ActionResponse::End);
                     }
                 }
@@ -175,8 +186,13 @@ fn handle_client(
             spawn,
             as_float,
             animations,
+            follow,
         } => {
-            let _ = handle_target(property, spawn, as_float, animations);
+            let _ = handle_target(property, spawn, as_float, animations, follow, Some(worker));
+            if state.lock().unwrap().registers.is_empty() && !worker.should_thread_run() {
+                worker.stop_thread();
+                return Ok(ActionResponse::End);
+            }
             return Ok(ActionResponse::Continue);
         }
     };
@@ -199,6 +215,8 @@ fn handle_focused_window(
     output: Option<Output>,
     as_float: bool,
     animations: bool,
+    follow: bool,
+    worker: &Worker,
 ) -> Option<String> {
     match state.get_register_by_number(register_number) {
         Some(register) => {
@@ -229,6 +247,9 @@ fn handle_focused_window(
                     set_tiling(socket, register_window.id);
                 }
                 register_action::stash(socket, state, Some(register.number));
+                if follow {
+                    worker.remove_scratchpad(Scratchpad::Register(register.clone()));
+                }
             } else {
                 register_action::summon(socket, state, RegisterInformation::Register(&register))
                     .ok();
@@ -236,17 +257,24 @@ fn handle_focused_window(
                 if as_float && animations {
                     set_floating(socket, register_window.id);
                 }
+                if follow {
+                    worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                }
             }
 
             output_value
         }
         None => {
-            state.registers.push(Register {
+            let register = Register {
                 title: context.title,
                 app_id: context.app_id,
                 window_id: context.window_id,
                 number: register_number,
-            });
+            };
+            if follow {
+                worker.add_scratchpad(Scratchpad::Register(register.clone()));
+            }
+            state.registers.push(register);
             if as_float {
                 set_floating(socket, context.window_id);
             }
