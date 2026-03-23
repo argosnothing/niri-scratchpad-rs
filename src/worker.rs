@@ -28,6 +28,7 @@ pub enum Scratchpad {
     Target(Property),
 }
 
+// Worker that interacts with an optional thread that listens to niri events
 pub struct Worker {
     pub state: Arc<Mutex<State>>,
     pub shutdown_signal: Arc<AtomicBool>,
