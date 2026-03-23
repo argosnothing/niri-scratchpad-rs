@@ -1,15 +1,16 @@
 use clap::Parser;
-use std::env::var;
 use std::io::{BufRead, BufReader, Result, Write};
 use std::os::unix::net::UnixStream;
 
 use crate::target_action::handle_target;
+use crate::utils::get_socket_path;
 pub mod args;
 pub mod daemon;
 pub mod register_action;
 pub mod state;
 pub mod target_action;
 pub mod utils;
+pub mod worker;
 
 fn connect_or_start_daemon(socket_path: &str) -> Result<UnixStream> {
     if let Ok(stream) = UnixStream::connect(socket_path) {
@@ -42,15 +43,17 @@ fn main() -> Result<()> {
         spawn,
         as_float,
         animations,
+        follow: false,
     } = args.action
     {
-        handle_target(property, spawn, as_float, animations)?;
+        handle_target(property, spawn, as_float, animations, false, None)?;
         return Ok(());
     }
-    let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
-    })?;
-    let socket_path = format!("{}/niri-register.sock", runtime_dir);
+
+    let path_buf = get_socket_path()?;
+    let Some(socket_path) = path_buf.to_str() else {
+        panic!("socket path malformed");
+    };
     let mut stream = connect_or_start_daemon(&socket_path)?;
     let request = serde_json::to_string(&args.action)?;
     writeln!(stream, "{}", request)?;

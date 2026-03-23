@@ -1,7 +1,8 @@
-use crate::register_action::{RegisterInformation, RegisterStatus};
+use crate::register_action::RegisterInformation;
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
-use crate::utils::{set_floating, set_tiling};
+use crate::utils::{get_socket_path, set_floating, set_tiling};
+use crate::worker::{Scratchpad, Worker};
 use crate::{
     args::{Action, Output},
     register_action,
@@ -9,17 +10,12 @@ use crate::{
 use niri_ipc::socket::Socket;
 use niri_ipc::{Request as NiriRequest, Response as NiriResponse};
 use std::os::unix::net::UnixStream;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::{
-    env::var,
     io::{BufRead, BufReader, Result, Write},
     os::unix::net::UnixListener,
-    path::PathBuf,
 };
-
-struct RegisterWithStatus {
-    status: RegisterStatus,
-    register: Register,
-}
 
 struct FocusedWindowContext {
     window_id: u64,
@@ -28,21 +24,33 @@ struct FocusedWindowContext {
     current_workspace_id: u64,
 }
 
+enum ActionResponse {
+    End,
+    Continue,
+}
+
 pub fn run_daemon() -> Result<()> {
+    #[cfg(debug_assertions)]
+    let _ = std::fs::write("/proc/self/comm", "niri-reg-debug");
     let socket_path = get_socket_path()?;
     if socket_path.exists() {
         std::fs::remove_file(&socket_path)?;
     }
     let listener = UnixListener::bind(&socket_path)?;
-    let mut state = State::new();
+    let state = Arc::new(Mutex::new(State::new()));
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let worker = Worker::new(state.clone(), shutdown.clone());
 
     for stream in listener.incoming() {
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
         match stream {
-            Ok(stream) => {
-                if let Err(e) = handle_client(stream, &mut state) {
-                    eprintln!("Error handling client: {}", e);
-                }
-            }
+            Ok(stream) => match handle_client(stream, &state, &worker) {
+                Ok(ActionResponse::End) => break,
+                Err(e) => eprintln!("Error handling client: {}", e),
+                _ => {}
+            },
             Err(e) => eprintln!("Connection error: {}", e),
         }
     }
@@ -50,7 +58,11 @@ pub fn run_daemon() -> Result<()> {
     Ok(())
 }
 
-fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
+fn handle_client(
+    stream: UnixStream,
+    state: &Arc<Mutex<State>>,
+    worker: &Worker,
+) -> Result<ActionResponse> {
     let mut reader = BufReader::new(&stream);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -59,12 +71,13 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
     let mut socket = Socket::connect()?;
 
     let response = match action {
-        Action::Daemon => return Ok(()),
+        Action::Daemon => return Ok(ActionResponse::Continue),
         Action::Create {
             register_number,
             output,
             as_float,
             animations,
+            follow,
         } => {
             let (
                 Ok(NiriResponse::FocusedWindow(focused_window)),
@@ -74,18 +87,20 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                 socket.send(NiriRequest::Workspaces)?,
             )
             else {
-                return Ok(());
+                return Ok(ActionResponse::Continue);
             };
             let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused)
             else {
-                return write_response(&stream, "");
+                return Ok(ActionResponse::Continue);
             };
 
-            match focused_window {
+            let mut state_lock = state.lock().unwrap();
+            let before_count = state_lock.registers.len();
+            let create_response = match focused_window {
                 Some(window) => {
                     let result = handle_focused_window(
                         &mut socket,
-                        state,
+                        &mut state_lock,
                         register_number,
                         FocusedWindowContext {
                             window_id: window.id,
@@ -96,14 +111,28 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
                         output,
                         as_float,
                         animations,
+                        follow,
+                        worker,
                     );
                     result.unwrap_or_default()
                 }
                 None => {
-                    handle_no_focused_window(&mut socket, state, register_number);
+                    handle_no_focused_window(&mut socket, &mut state_lock, register_number);
+                    if follow {
+                        if let Some(register) = state_lock.get_register_ref_by_number(register_number) {
+                            worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                        }
+                    }
                     String::new()
                 }
+            };
+            let after_count = state_lock.registers.len();
+            drop(state_lock);
+            if after_count > before_count {
+                worker.increment_delete_watchers();
             }
+
+            create_response
         }
         Action::Delete {
             register_number,
@@ -112,15 +141,23 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             if output.is_some() {
                 String::new()
             } else {
-                if register_check(&mut socket, state, register_number).is_some() {
+                let mut state_lock = state.lock().unwrap();
+                if state_lock.get_register_by_number(register_number).is_some() {
                     let Ok(_) = register_action::summon(
                         &mut socket,
-                        state,
+                        &state_lock,
                         RegisterInformation::Id(register_number),
                     ) else {
-                        return Ok(());
+                        return Ok(ActionResponse::Continue);
                     };
-                    state.delete_register(register_number);
+                    state_lock.delete_register(register_number);
+                    let is_empty = state_lock.registers.is_empty();
+                    drop(state_lock);
+                    worker.decrement_delete_watchers();
+                    if is_empty {
+                        worker.stop_thread();
+                        return Ok(ActionResponse::End);
+                    }
                 }
                 String::new()
             }
@@ -129,9 +166,10 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             register_number,
             output,
         } => {
-            sync_state(&mut socket, state);
-            let Some(register) = state.get_register_by_number(register_number) else {
-                return write_response(&stream, "");
+            let mut state_lock = state.lock().unwrap();
+            sync_state(&mut socket, &mut state_lock);
+            let Some(register) = state_lock.get_register_by_number(register_number) else {
+                return Ok(ActionResponse::Continue);
             };
             match output {
                 Output::Title => register.title.unwrap_or_default(),
@@ -139,7 +177,8 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             }
         }
         Action::Sync => {
-            sync_state(&mut socket, state);
+            let mut state_lock = state.lock().unwrap();
+            sync_state(&mut socket, &mut state_lock);
             String::new()
         }
         Action::Target {
@@ -147,31 +186,25 @@ fn handle_client(stream: UnixStream, state: &mut State) -> Result<()> {
             spawn,
             as_float,
             animations,
+            follow,
         } => {
-            let _ = handle_target(property, spawn, as_float, animations);
-            return Ok(());
+            let _ = handle_target(property, spawn, as_float, animations, follow, Some(worker));
+            if state.lock().unwrap().registers.is_empty() && !worker.should_thread_run() {
+                worker.stop_thread();
+                return Ok(ActionResponse::End);
+            }
+            return Ok(ActionResponse::Continue);
         }
     };
 
-    write_response(&stream, &response)
+    write_response(&stream, &response)?;
+    Ok(ActionResponse::Continue)
 }
 
 fn write_response(stream: &UnixStream, response: &str) -> Result<()> {
     let mut writer = stream;
     writeln!(writer, "{}", response)?;
     Ok(())
-}
-
-fn register_check(
-    socket: &mut Socket,
-    state: &State,
-    register_number: i32,
-) -> Option<RegisterWithStatus> {
-    let register = state.get_register_by_number(register_number)?;
-    Some(RegisterWithStatus {
-        status: register_action::check_status(socket, &register),
-        register,
-    })
 }
 
 fn handle_focused_window(
@@ -182,92 +215,66 @@ fn handle_focused_window(
     output: Option<Output>,
     as_float: bool,
     animations: bool,
+    follow: bool,
+    worker: &Worker,
 ) -> Option<String> {
-    match register_check(socket, state, register_number) {
-        Some(register_with_status) => match register_with_status.status {
-            RegisterStatus::WindowMapped => {
-                let Ok(Ok(NiriResponse::Windows(windows))) = socket.send(NiriRequest::Windows)
-                else {
-                    return None;
-                };
-                let register_window = windows
-                    .iter()
-                    .find(|w| w.id == register_with_status.register.window_id)?;
+    match state.get_register_by_number(register_number) {
+        Some(register) => {
+            let Ok(Ok(NiriResponse::Windows(windows))) = socket.send(NiriRequest::Windows) else {
+                return None;
+            };
+            let register_window = windows.iter().find(|w| w.id == register.window_id)?;
 
-                let output_value = match output {
-                    Some(Output::Title) => register_window.title.clone(),
-                    Some(Output::AppId) => register_window.app_id.clone(),
-                    None => None,
-                };
+            let output_value = match output {
+                Some(Output::Title) => register_window.title.clone(),
+                Some(Output::AppId) => register_window.app_id.clone(),
+                None => None,
+            };
 
-                state.update_register(Register {
-                    number: register_number,
-                    title: register_window.title.clone(),
-                    app_id: register_window.app_id.clone(),
-                    window_id: register_window.id,
-                });
+            state.update_register(Register {
+                number: register_number,
+                title: register_window.title.clone(),
+                app_id: register_window.app_id.clone(),
+                window_id: register_window.id,
+            });
 
-                let Some(workspace_id) = register_window.workspace_id else {
-                    return output_value;
-                };
+            let Some(workspace_id) = register_window.workspace_id else {
+                return output_value;
+            };
 
-                if workspace_id == context.current_workspace_id {
-                    if animations && register_window.is_floating {
-                        set_tiling(socket, register_window.id);
-                    }
-                    register_action::stash(
-                        socket,
-                        state,
-                        Some(register_with_status.register.number),
-                    );
-                } else {
-                    register_action::summon(
-                        socket,
-                        state,
-                        RegisterInformation::Register(&register_with_status.register),
-                    )
+            if workspace_id == context.current_workspace_id {
+                if animations && register_window.is_floating {
+                    set_tiling(socket, register_window.id);
+                }
+                register_action::stash(socket, state, Some(register.number));
+                if follow {
+                    worker.remove_scratchpad(Scratchpad::Register(register.clone()));
+                }
+            } else {
+                register_action::summon(socket, state, RegisterInformation::Register(&register))
                     .ok();
 
-                    if as_float && animations {
-                        set_floating(socket, register_window.id);
-                    }
+                if as_float && animations {
+                    set_floating(socket, register_window.id);
                 }
-
-                output_value
-            }
-            RegisterStatus::WindowDropped => {
-                state.delete_register(register_number);
-
-                let output_value = if let Some(output) = output {
-                    match output {
-                        Output::Title => context.title.clone(),
-                        Output::AppId => context.app_id.clone(),
-                    }
-                } else {
-                    None
-                };
-
-                state.registers.push(Register {
-                    title: context.title,
-                    app_id: context.app_id,
-                    window_id: context.window_id,
-                    number: register_number,
-                });
-
-                if as_float {
-                    set_floating(socket, context.window_id);
+                if follow {
+                    worker.add_scratchpad(Scratchpad::Register(register.clone()));
                 }
-
-                output_value
             }
-        },
+
+            output_value
+        }
         None => {
-            state.registers.push(Register {
+            let register = Register {
                 title: context.title,
                 app_id: context.app_id,
                 window_id: context.window_id,
                 number: register_number,
-            });
+            };
+            if follow {
+                worker.add_scratchpad(Scratchpad::Register(register.clone()));
+            }
+            state.registers.push(register);
             if as_float {
                 set_floating(socket, context.window_id);
             }
@@ -291,11 +298,4 @@ fn sync_state(socket: &mut Socket, state: &mut State) {
         return;
     };
     state.syncronize_registers(register_statuses).ok();
-}
-
-fn get_socket_path() -> Result<PathBuf> {
-    let runtime_dir = var("XDG_RUNTIME_DIR").map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "XDG_RUNTIME_DIR not set")
-    })?;
-    Ok(PathBuf::from(runtime_dir).join("niri-register.sock"))
 }

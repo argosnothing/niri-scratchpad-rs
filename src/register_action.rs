@@ -1,10 +1,5 @@
 use std::io::Result;
 
-pub enum RegisterStatus {
-    WindowMapped,
-    WindowDropped,
-}
-
 use crate::state::{Register, RegisterUpdate, State};
 use niri_ipc::{
     Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace},
@@ -107,19 +102,6 @@ pub fn summon(
     };
     let _ = socket.send(Request::Action(focus_action));
     Ok(())
-}
-
-pub fn check_status(socket: &mut Socket, register: &Register) -> RegisterStatus {
-    let Ok(Ok(Response::Windows(windows))) = socket.send(Request::Windows) else {
-        return RegisterStatus::WindowDropped;
-    };
-    match windows
-        .iter()
-        .find(|window| register.window_id == window.id)
-    {
-        Some(_) => RegisterStatus::WindowMapped,
-        None => RegisterStatus::WindowDropped,
-    }
 }
 
 pub fn get_all_register_status(
