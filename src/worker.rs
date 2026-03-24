@@ -22,10 +22,19 @@ use crate::{
     utils::get_socket_path,
 };
 
-#[derive(PartialEq)]
 pub enum Scratchpad {
     Register(Register),
     Target(Property),
+}
+
+impl PartialEq for Scratchpad {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Scratchpad::Register(a), Scratchpad::Register(b)) => a.number == b.number,
+            (Scratchpad::Target(a), Scratchpad::Target(b)) => a == b,
+            _ => false,
+        }
+    }
 }
 
 /// Worker that interacts with an optional thread that listens to niri events
