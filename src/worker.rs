@@ -15,7 +15,7 @@ use niri_ipc::Event;
 use niri_ipc::socket::Socket;
 
 use crate::{
-    args::Property,
+    args::PropertyKind,
     register_action::{self, RegisterInformation},
     state::{Register, State},
     target_action,
@@ -24,14 +24,14 @@ use crate::{
 
 pub enum Scratchpad {
     Register(Register),
-    Target(Property),
+    Target(PropertyKind, String),
 }
 
 impl PartialEq for Scratchpad {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Scratchpad::Register(a), Scratchpad::Register(b)) => a.number == b.number,
-            (Scratchpad::Target(a), Scratchpad::Target(b)) => a == b,
+            (Scratchpad::Target(a, av), Scratchpad::Target(b, bv)) => a == b && av == bv,
             _ => false,
         }
     }
@@ -201,10 +201,10 @@ fn listen_to_events(
         match event {
             Event::WindowClosed { id } => {
                 let mut following = scratchpads_following.lock().unwrap();
-                let has_targets = following.iter().any(|s| matches!(s, Scratchpad::Target(_)));
+                let has_targets = following.iter().any(|s| matches!(s, Scratchpad::Target(..)));
                 following.retain(|s| match s {
                     Scratchpad::Register(r) => r.window_id != id,
-                    Scratchpad::Target(_) => true,
+                    Scratchpad::Target(..) => true,
                 });
                 if has_targets {
                     if let Ok(mut socket) = Socket::connect() {
@@ -213,9 +213,9 @@ fn listen_to_events(
                         {
                             following.retain(|s| match s {
                                 Scratchpad::Register(_) => true,
-                                Scratchpad::Target(property) => windows
+                                Scratchpad::Target(property, value) => windows
                                     .iter()
-                                    .any(|w| target_action::match_window_by_property(w, property)),
+                                    .any(|w| target_action::match_window_by_property(w, property, value)),
                             });
                         }
                     }
@@ -266,10 +266,11 @@ fn listen_to_events(
                                         RegisterInformation::Register(register),
                                     );
                                 }
-                                Scratchpad::Target(property) => {
+                                Scratchpad::Target(property, value) => {
                                     let info = target_action::get_windows_by_property(
                                         &mut socket,
                                         property,
+                                        value,
                                         0,
                                     );
                                     for window in &info.windows {
