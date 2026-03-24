@@ -3,7 +3,7 @@ No config files required.
 
 ![tmp XVc2CNDYYc](https://github.com/user-attachments/assets/a1cf8329-61da-423a-a362-17a6a06274d2)
 
-You must define a static workspace named `stash` in your Niri configuration.  
+You must define a static workspace named `stash` in your Niri configuration.
 All stashed scratchpads are moved here.
 
 ```kdl
@@ -14,8 +14,8 @@ workspace "stash" { }
 
 ## Static Scratchpads
 
-Static scratchpads show and hide windows based on properties such as **appid** or **title**.  
-If multiple windows match, all matches are selected. If any matched window is in stash all windows will be shown on your focused workspace. 
+Static scratchpads show and hide windows based on properties such as **appid** or **title**.
+If multiple windows match, all matches are selected. If any matched window is in stash all windows will be shown on your focused workspace.
 
 No background process is required when using only static scratchpads.
 
@@ -53,8 +53,8 @@ One note, is while `--as-float` is technically available with the spawn command,
 
 ## Dynamic Scratchpads
 
-Dynamic scratchpads assign a window to a numbered register.  
-You can toggle the window with a keybind using that register. Associations between registers and their windows do not persist after session end. 
+Dynamic scratchpads assign a window to a numbered register.
+You can toggle the window with a keybind using that register. Associations between registers and their windows do not persist after session end.
 
 ### Example Niri bindings
 
@@ -124,7 +124,7 @@ binds {
 
 This is a single Rust binary.
 
-Prebuilt `x86_64` binaries are provided.  
+Prebuilt `x86_64` binaries are provided.
 Download, place in your PATH, and make executable:
 
 ```bash
@@ -173,10 +173,10 @@ environment.systemPackages = [
 
 ## Related Resources
 
-- Static scratchpads via spawn command:  
+- Static scratchpads via spawn command:
   https://github.com/gvolpe/niri-scratchpad
 
-- Niri scratchpad discussion:  
+- Niri scratchpad discussion:
   https://github.com/YaLTeR/niri/discussions/329
 
 ---
@@ -201,3 +201,8 @@ To use:
 Hidden workspaces are not advertised to the event stream, so bars and workspace widgets remain unaffected.
 
 Feedback is welcome if you try this branch.
+
+---
+
+## AI Disclosure
+I use claude lightly for development, primarily as a debug assistant.
