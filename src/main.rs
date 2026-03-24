@@ -40,13 +40,12 @@ fn main() -> Result<()> {
     let args = args::Args::parse();
     if let args::Action::Target {
         property,
+        value,
         spawn,
-        as_float,
-        animations,
-        follow: false,
+        opts: opts @ args::ScratchpadOpts { follow: false, .. },
     } = args.action
     {
-        handle_target(property, spawn, as_float, animations, false, None)?;
+        handle_target(property, value, spawn, opts, None)?;
         return Ok(());
     }
 

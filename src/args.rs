@@ -1,41 +1,37 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
+#[derive(clap::Args, Debug, Clone, Serialize, Deserialize)]
+pub struct ScratchpadOpts {
+    #[arg(long, help = "Set window to floating")]
+    pub as_float: bool,
+    #[arg(long, help = "Animate window if floating")]
+    pub animations: bool,
+    #[arg(long, help = "Scratchpad follows across workspace changes")]
+    pub follow: bool,
+}
+
 #[derive(Subcommand, Debug, Serialize, Deserialize)]
 pub enum Action {
     #[command(about = "Target a window by app id or title.")]
     Target {
-        #[command(subcommand)]
-        property: Property,
+        property: PropertyKind,
+        value: String,
         #[arg(
             long,
             help = "Spawn the application if no target is found",
             name = "spawn command"
         )]
         spawn: Option<String>,
-        #[arg(
-            long,
-            help = "Effected windows will set themselves to floating (not on spawn)"
-        )]
-        as_float: bool,
-        #[arg(long, help = "Effected windows will animate if floating")]
-        animations: bool,
-        #[arg(long, help = "Scratchpad follows across workspace changes")]
-        follow: bool,
+        #[command(flatten)]
+        opts: ScratchpadOpts,
     },
     Create {
         register_number: i32,
         #[arg(short, long)]
         output: Option<Output>,
-        #[arg(
-            long,
-            help = "Initial register create will toggle floating on the window"
-        )]
-        as_float: bool,
-        #[arg(long, help = "Effected windows will animate if floating")]
-        animations: bool,
-        #[arg(long, help = "Scratchpad follows across workspace changes")]
-        follow: bool,
+        #[command(flatten)]
+        opts: ScratchpadOpts,
     },
     Delete {
         register_number: i32,
@@ -50,18 +46,11 @@ pub enum Action {
     Daemon,
 }
 
-#[derive(Subcommand, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Property {
-    #[command(name = "appid")]
-    AppId {
-        #[arg(name = "string")]
-        value: String,
-    },
-    #[command(name = "title")]
-    Title {
-        #[arg(name = "string")]
-        value: String,
-    },
+#[derive(ValueEnum, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[value(rename_all = "lowercase")]
+pub enum PropertyKind {
+    AppId,
+    Title,
 }
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]

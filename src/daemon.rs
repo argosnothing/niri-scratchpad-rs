@@ -4,7 +4,7 @@ use crate::target_action::handle_target;
 use crate::utils::{get_socket_path, set_floating, set_tiling};
 use crate::worker::{Scratchpad, Worker};
 use crate::{
-    args::{Action, Output},
+    args::{Action, Output, ScratchpadOpts},
     register_action,
 };
 use niri_ipc::socket::Socket;
@@ -75,9 +75,7 @@ fn handle_client(
         Action::Create {
             register_number,
             output,
-            as_float,
-            animations,
-            follow,
+            opts,
         } => {
             let (
                 Ok(NiriResponse::FocusedWindow(focused_window)),
@@ -109,16 +107,14 @@ fn handle_client(
                             current_workspace_id: current_workspace.id,
                         },
                         output,
-                        as_float,
-                        animations,
-                        follow,
+                        &opts,
                         worker,
                     );
                     result.unwrap_or_default()
                 }
                 None => {
                     handle_no_focused_window(&mut socket, &mut state_lock, register_number);
-                    if follow {
+                    if opts.follow {
                         if let Some(register) = state_lock.get_register_ref_by_number(register_number) {
                             worker.add_scratchpad(Scratchpad::Register(register.clone()));
                         }
@@ -183,12 +179,11 @@ fn handle_client(
         }
         Action::Target {
             property,
+            value,
             spawn,
-            as_float,
-            animations,
-            follow,
+            opts,
         } => {
-            let _ = handle_target(property, spawn, as_float, animations, follow, Some(worker));
+            let _ = handle_target(property, value, spawn, opts, Some(worker));
             if state.lock().unwrap().registers.is_empty() && !worker.should_thread_run() {
                 worker.stop_thread();
                 return Ok(ActionResponse::End);
@@ -213,9 +208,7 @@ fn handle_focused_window(
     register_number: i32,
     context: FocusedWindowContext,
     output: Option<Output>,
-    as_float: bool,
-    animations: bool,
-    follow: bool,
+    opts: &ScratchpadOpts,
     worker: &Worker,
 ) -> Option<String> {
     match state.get_register_by_number(register_number) {
@@ -243,21 +236,21 @@ fn handle_focused_window(
             };
 
             if workspace_id == context.current_workspace_id {
-                if animations && register_window.is_floating {
+                if opts.animations && register_window.is_floating {
                     set_tiling(socket, register_window.id);
                 }
                 register_action::stash(socket, state, Some(register.number));
-                if follow {
+                if opts.follow {
                     worker.remove_scratchpad(Scratchpad::Register(register.clone()));
                 }
             } else {
                 register_action::summon(socket, state, RegisterInformation::Register(&register))
                     .ok();
 
-                if as_float && animations {
+                if opts.as_float && opts.animations {
                     set_floating(socket, register_window.id);
                 }
-                if follow {
+                if opts.follow {
                     worker.add_scratchpad(Scratchpad::Register(register.clone()));
                 }
             }
@@ -271,11 +264,11 @@ fn handle_focused_window(
                 window_id: context.window_id,
                 number: register_number,
             };
-            if follow {
+            if opts.follow {
                 worker.add_scratchpad(Scratchpad::Register(register.clone()));
             }
             state.registers.push(register);
-            if as_float {
+            if opts.as_float {
                 set_floating(socket, context.window_id);
             }
             None
