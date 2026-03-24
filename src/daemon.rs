@@ -138,7 +138,8 @@ fn handle_client(
                 String::new()
             } else {
                 let mut state_lock = state.lock().unwrap();
-                if state_lock.get_register_by_number(register_number).is_some() {
+                if let Some(register) = state_lock.get_register_by_number(register_number) {
+                    worker.remove_scratchpad(Scratchpad::Register(register));
                     let Ok(_) = register_action::summon(
                         &mut socket,
                         &state_lock,
