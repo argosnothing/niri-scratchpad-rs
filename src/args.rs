@@ -9,6 +9,8 @@ pub struct ScratchpadOpts {
     pub animations: bool,
     #[arg(long, help = "Scratchpad follows across workspace changes")]
     pub follow: bool,
+    #[arg(long, help = "Stash other scratchpads when summoned")]
+    pub exclusive: bool,
 }
 
 #[derive(Subcommand, Debug, Serialize, Deserialize)]

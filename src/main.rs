@@ -45,7 +45,7 @@ fn main() -> Result<()> {
         opts: opts @ args::ScratchpadOpts { follow: false, .. },
     } = args.action
     {
-        handle_target(property, value, spawn, opts, None)?;
+        handle_target(property, &value, spawn, opts, None)?;
         return Ok(());
     }
 

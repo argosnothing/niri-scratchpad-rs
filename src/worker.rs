@@ -15,23 +15,19 @@ use niri_ipc::Event;
 use niri_ipc::socket::Socket;
 
 use crate::{
-    args::PropertyKind,
     register_action::{self, RegisterInformation},
-    state::{Register, State},
+    state::State,
     target_action,
     utils::get_socket_path,
 };
 
-pub enum Scratchpad {
-    Register(Register),
-    Target(PropertyKind, String),
-}
+use crate::utils::Scratchpad;
 
 impl PartialEq for Scratchpad {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Scratchpad::Register(a), Scratchpad::Register(b)) => a.number == b.number,
-            (Scratchpad::Target(a, av), Scratchpad::Target(b, bv)) => a == b && av == bv,
+            (Scratchpad::Register(a, _), Scratchpad::Register(b, _)) => a.number == b.number,
+            (Scratchpad::Target(a, av, _), Scratchpad::Target(b, bv, _)) => a == b && av == bv,
             _ => false,
         }
     }
@@ -201,9 +197,11 @@ fn listen_to_events(
         match event {
             Event::WindowClosed { id } => {
                 let mut following = scratchpads_following.lock().unwrap();
-                let has_targets = following.iter().any(|s| matches!(s, Scratchpad::Target(..)));
+                let has_targets = following
+                    .iter()
+                    .any(|s| matches!(s, Scratchpad::Target(..)));
                 following.retain(|s| match s {
-                    Scratchpad::Register(r) => r.window_id != id,
+                    Scratchpad::Register(r, o) => r.window_id != id,
                     Scratchpad::Target(..) => true,
                 });
                 if has_targets {
@@ -212,10 +210,12 @@ fn listen_to_events(
                             socket.send(niri_ipc::Request::Windows)
                         {
                             following.retain(|s| match s {
-                                Scratchpad::Register(_) => true,
-                                Scratchpad::Target(property, value) => windows
-                                    .iter()
-                                    .any(|w| target_action::match_window_by_property(w, property, value)),
+                                Scratchpad::Register(_, _) => true,
+                                Scratchpad::Target(property, value, options) => {
+                                    windows.iter().any(|w| {
+                                        target_action::match_window_by_property(w, property, value)
+                                    })
+                                }
                             });
                         }
                     }

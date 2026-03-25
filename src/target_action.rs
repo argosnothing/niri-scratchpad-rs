@@ -6,8 +6,9 @@ use niri_ipc::Action::{FocusWindow, MoveWindowToMonitor, MoveWindowToWorkspace};
 
 use crate::args::{PropertyKind, ScratchpadOpts};
 use crate::target_action;
-use crate::utils::{set_floating, set_tiling};
-use crate::worker::{Scratchpad, Worker};
+use crate::utils::Scratchpad;
+use crate::utils::{ActionPerformed, set_floating, set_tiling};
+use crate::worker::Worker;
 
 pub struct WindowTargetInformation {
     pub windows: Vec<Window>,
@@ -91,26 +92,26 @@ pub fn summon_window(socket: &mut Socket, window: &Window, workspace_id: u64) ->
 
 pub fn handle_target(
     property: PropertyKind,
-    value: String,
+    value: &String,
     spawn: Option<String>,
     opts: ScratchpadOpts,
     worker: Option<&Worker>,
-) -> Result<()> {
+) -> Result<Option<ActionPerformed>> {
     let mut socket = Socket::connect()?;
 
     let Ok(Response::Workspaces(workspaces)) = socket.send(Request::Workspaces)? else {
-        return Ok(());
+        return Ok(None);
     };
 
     let Some(current_workspace) = workspaces.iter().find(|workspace| workspace.is_focused) else {
-        return Ok(());
+        return Ok(None);
     };
 
     let Some(stash_workspace) = workspaces
         .iter()
         .find(|workspace| Some("stash") == workspace.name.as_deref())
     else {
-        return Ok(());
+        return Ok(None);
     };
     let window_target_information =
         get_windows_by_property(&mut socket, &property, &value, stash_workspace.id);
@@ -119,9 +120,10 @@ pub fn handle_target(
         && window_target_information.windows.is_empty()
     {
         target_action::spawn(&mut socket, command);
-        return Ok(());
+        return Ok(None);
     };
 
+    let mut action_performed: Option<ActionPerformed> = None;
     if !window_target_information.windows.is_empty() {
         // tl;dr if there are ny matching windows found in the stash workspace, we simply move
         // everything up to the focused workspace, regardless if there are matched windows in current workspace
@@ -129,13 +131,18 @@ pub fn handle_target(
         if window_target_information.found_in_stash {
             for window in window_target_information.windows {
                 target_action::summon_window(&mut socket, &window, current_workspace.id)?;
+                action_performed = Some(ActionPerformed::Summoned);
                 if opts.as_float {
                     set_floating(&mut socket, window.id);
                 }
             }
             if opts.follow {
                 if let Some(worker) = worker {
-                    worker.add_scratchpad(Scratchpad::Target(property.clone(), value.clone()));
+                    worker.add_scratchpad(Scratchpad::Target(
+                        property.clone(),
+                        value.clone(),
+                        Some(opts),
+                    ));
                 }
             }
         } else {
@@ -144,16 +151,21 @@ pub fn handle_target(
                     set_tiling(&mut socket, window.id);
                 }
                 target_action::stash_window(&mut socket, &window, stash_workspace.id);
+                action_performed = Some(ActionPerformed::Stashed);
             }
             if opts.follow {
                 if let Some(worker) = worker {
-                    worker.remove_scratchpad(Scratchpad::Target(property.clone(), value.clone()));
+                    worker.remove_scratchpad(Scratchpad::Target(
+                        property.clone(),
+                        value.clone(),
+                        None,
+                    ));
                 }
             }
         }
     }
 
-    return Ok(());
+    return Ok(action_performed);
 }
 
 pub fn spawn(socket: &mut Socket, command: String) {

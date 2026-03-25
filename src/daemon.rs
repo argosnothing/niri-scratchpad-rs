@@ -1,8 +1,9 @@
 use crate::register_action::RegisterInformation;
 use crate::state::{Register, State};
 use crate::target_action::handle_target;
+use crate::utils::Scratchpad;
 use crate::utils::{get_socket_path, set_floating, set_tiling};
-use crate::worker::{Scratchpad, Worker};
+use crate::worker::Worker;
 use crate::{
     args::{Action, Output, ScratchpadOpts},
     register_action,
@@ -115,8 +116,11 @@ fn handle_client(
                 None => {
                     handle_no_focused_window(&mut socket, &mut state_lock, register_number);
                     if opts.follow {
-                        if let Some(register) = state_lock.get_register_ref_by_number(register_number) {
-                            worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                        if let Some(register) =
+                            state_lock.get_register_ref_by_number(register_number)
+                        {
+                            worker
+                                .add_scratchpad(Scratchpad::Register(register.clone(), Some(opts)));
                         }
                     }
                     String::new()
@@ -139,7 +143,7 @@ fn handle_client(
             } else {
                 let mut state_lock = state.lock().unwrap();
                 if let Some(register) = state_lock.get_register_by_number(register_number) {
-                    worker.remove_scratchpad(Scratchpad::Register(register));
+                    worker.remove_scratchpad(Scratchpad::Register(register, None));
                     let Ok(_) = register_action::summon(
                         &mut socket,
                         &state_lock,
@@ -184,7 +188,7 @@ fn handle_client(
             spawn,
             opts,
         } => {
-            let _ = handle_target(property, value, spawn, opts, Some(worker));
+            let action_performed = handle_target(property, &value, spawn, opts, Some(worker))?;
             if state.lock().unwrap().registers.is_empty() && !worker.should_thread_run() {
                 worker.stop_thread();
                 return Ok(ActionResponse::End);
@@ -242,7 +246,7 @@ fn handle_focused_window(
                 }
                 register_action::stash(socket, state, Some(register.number));
                 if opts.follow {
-                    worker.remove_scratchpad(Scratchpad::Register(register.clone()));
+                    worker.remove_scratchpad(Scratchpad::Register(register.clone(), None));
                 }
             } else {
                 register_action::summon(socket, state, RegisterInformation::Register(&register))
@@ -252,7 +256,7 @@ fn handle_focused_window(
                     set_floating(socket, register_window.id);
                 }
                 if opts.follow {
-                    worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                    worker.add_scratchpad(Scratchpad::Register(register.clone(), None));
                 }
             }
 
@@ -266,7 +270,7 @@ fn handle_focused_window(
                 number: register_number,
             };
             if opts.follow {
-                worker.add_scratchpad(Scratchpad::Register(register.clone()));
+                worker.add_scratchpad(Scratchpad::Register(register.clone(), None));
             }
             state.registers.push(register);
             if opts.as_float {
